@@ -19,6 +19,7 @@ from .schema import EvalRun
 @dataclass
 class AbstentionAudit:
     n: int
+    skipped: str | None
     abstain_rate: float
     accuracy: float
     aurc: float
@@ -34,11 +35,23 @@ class AbstentionAudit:
 def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit:
     arr: RunArrays = to_arrays(run)
     valid = arr.answered & ~np.isnan(arr.conf)
+    n = int(valid.sum())
+    abstain_rate = float(np.mean(~arr.answered | np.isnan(arr.conf)))
+    nan = float("nan")
+    if n == 0:
+        skipped = (
+            "no answered responses carry confidence; selective prediction "
+            "cannot be computed without confidence values"
+        )
+        return AbstentionAudit(
+            n=0, skipped=skipped, abstain_rate=abstain_rate, accuracy=nan,
+            aurc=nan, e_aurc=nan, target_risk=target_risk,
+            suggested_threshold=nan, coverage_at_target=nan, risk_at_threshold=nan,
+            coverage_curve=np.array([0.0, 1.0]), risk_curve=np.array([nan, nan]),
+        )
+
     conf = arr.conf[valid]
     correct = arr.correct[valid].astype(bool)
-    n = int(valid.sum())
-    if n == 0:
-        raise ValueError("no answered responses with confidence; selective prediction cannot be computed")
 
     order = np.argsort(-conf, kind="stable")
     correct_sorted = correct[order].astype(float)
@@ -76,7 +89,8 @@ def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit
     step = max(1, n // 200)
     return AbstentionAudit(
         n=n,
-        abstain_rate=float(np.mean(~arr.answered | np.isnan(arr.conf))),
+        skipped=None,
+        abstain_rate=abstain_rate,
         accuracy=float(correct.mean()),
         aurc=aurc,
         e_aurc=e_aurc,

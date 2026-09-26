@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .generators import generate_run
 from .report import run_audit, write_report
 from .schema import load_jsonl, save_jsonl
@@ -34,15 +35,26 @@ def _audit_run(run, args):
     )
 
 
+def _report_lines(bundle) -> list[str]:
+    lines = [
+        f"  position bias : {bundle.position.verdict if bundle.position.skipped is None else 'skipped'}"
+        + (f" (p = {bundle.position.p_value:.2e})" if bundle.position.skipped is None else ""),
+        f"  length bias   : {bundle.length.verdict if bundle.length.skipped is None else 'skipped'}"
+        + (f" (p = {bundle.length.rank_p:.2e})" if bundle.length.skipped is None else ""),
+        f"  order         : {bundle.order.verdict}",
+        f"  calibration   : {bundle.calibration.verdict if bundle.calibration.skipped is None else 'skipped'}"
+        + (f" (ECE = {bundle.calibration.ece:.3f})" if bundle.calibration.skipped is None else ""),
+    ]
+    return lines
+
+
 def cmd_audit(args) -> int:
     run = load_jsonl(args.input)
     bundle = _audit_run(run, args)
     out = write_report(bundle, args.out, title=f"Bias & Calibration Audit — {run.name}")
     print(f"audit complete: {run.name} ({len(run)} responses)")
-    print(f"  position bias : {bundle.position.verdict} (p = {bundle.position.p_value:.2e})")
-    print(f"  length bias   : {bundle.length.verdict} (p = {bundle.length.rank_p:.2e})")
-    print(f"  order         : {bundle.order.verdict}")
-    print(f"  calibration   : {bundle.calibration.verdict} (ECE = {bundle.calibration.ece:.3f})")
+    for line in _report_lines(bundle):
+        print(line)
     print(f"report: {out}")
     return 0
 
@@ -81,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Audit multiple-choice evaluation runs for position/length/ordering bias "
         "and confidence calibration.",
     )
+    parser.add_argument("--version", action="version", version=f"choice-eval-toolkit {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     common = argparse.ArgumentParser(add_help=False)

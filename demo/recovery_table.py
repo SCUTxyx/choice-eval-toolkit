@@ -1,8 +1,8 @@
 """Print the injected-vs-recovered table used in the README.
 
 Each row injects ONE bias into an otherwise clean synthetic run (n = 6000
-questions) and reports what the audit measured. Excess CIs come from the
-audit's cluster bootstrap (questions as clusters). Run:
+questions) and reports what the audit measured. CIs come from the audit's
+cluster bootstrap (questions as clusters). Run:
 
     PYTHONPATH=. python demo/recovery_table.py
 """
@@ -20,24 +20,28 @@ SEED = 3
 N_BOOT = 500
 
 
-def _excess_ci_boot(values_by_row_sel, qid, slot, k, n_boot=N_BOOT, seed=1):
-    """Cluster bootstrap CI for excess of `slot` over the mean of the others."""
-    rng = np.random.default_rng(seed)
-    unique, inverse = np.unique(qid, return_inverse=True)
-    by_cluster = {i: np.where(inverse == i)[0] for i in range(len(unique))}
-    draws = np.empty(n_boot)
-    n = len(values_by_row_sel)
-    for bidx in range(n_boot):
-        picked = rng.integers(0, len(unique), size=len(unique))
-        idx = np.concatenate([by_cluster[i] for i in picked])
-        r = np.bincount(values_by_row_sel[idx], minlength=k) / len(idx)
-        draws[bidx] = r[slot] - np.delete(r, slot).mean()
-    lo, hi = np.percentile(draws, [2.5, 97.5])
-    return float(lo), float(hi)
-
-
-def _rate_excess(rates, slot):
+def _excess(rates, slot):
     return rates[slot] - np.delete(rates, slot).mean()
+
+
+def _length_excess_ci(run, slot, k, n_boot=N_BOOT, seed=1):
+    """Cluster bootstrap CI for the excess of one length rank over the others."""
+    from choice_eval.stats import cluster_bootstrap_draws
+
+    arr = to_arrays(run)
+    usable = arr.answered & ~np.isnan(arr.lengths).any(axis=1)
+    lengths = arr.lengths[usable]
+    sel = arr.sel[usable]
+    ranks = np.argsort(np.argsort(lengths, axis=1, kind="stable"), axis=1)
+    sel_rank = ranks[np.arange(len(sel)), sel]
+    qid = arr.qid[usable]
+
+    def stat(idx):
+        r = np.bincount(sel_rank[idx], minlength=k) / len(idx)
+        return r[slot] - np.delete(r, slot).mean()
+
+    lo, hi = np.percentile(cluster_bootstrap_draws(stat, qid, n_boot, seed), [2.5, 97.5])
+    return float(lo), float(hi)
 
 
 def main() -> None:
@@ -47,14 +51,13 @@ def main() -> None:
     run = generate_run(n_questions=N, seed=SEED, position_attract={2: 0.30})
     b = run_audit(run, n_boot=N_BOOT)
     exp = expected_selection_rates(b.accuracy, 4, position_attract={2: 0.30})
-    arr = to_arrays(run)
-    lo, hi = _excess_ci_boot(arr.sel[arr.answered], arr.qid[arr.answered], 2, 4)
+    lo, hi = b.position.excess_ci[2]
     rows.append(
         (
             "Position pull toward option C",
             "`position_attract={2: 0.30}`",
-            f"{_rate_excess(exp, 2):+.3f} excess at C",
-            f"{_rate_excess(b.position.selection_rates, 2):+.3f} [{lo:+.3f}, {hi:+.3f}]",
+            f"{_excess(exp, 2):+.3f} excess at C",
+            f"{_excess(b.position.selection_rates, 2):+.3f} [{lo:+.3f}, {hi:+.3f}]",
             f"p = {b.position.p_value:.0e} → {b.position.verdict}",
         )
     )
@@ -63,19 +66,13 @@ def main() -> None:
     run = generate_run(n_questions=N, seed=SEED, length_attract=0.25)
     b = run_audit(run, n_boot=N_BOOT)
     exp = expected_selection_rates(b.accuracy, 4, length_attract=0.25, space="rank")
-    arr = to_arrays(run)
-    usable = arr.answered & ~np.isnan(arr.lengths).any(axis=1)
-    lengths = arr.lengths[usable]
-    sel = arr.sel[usable]
-    ranks = np.argsort(np.argsort(lengths, axis=1, kind="stable"), axis=1)
-    sel_rank = ranks[np.arange(len(sel)), sel]
-    lo, hi = _excess_ci_boot(sel_rank, arr.qid[usable], 3, 4)
+    lo, hi = _length_excess_ci(run, 3, 4)
     rows.append(
         (
             "Longest-option pull",
             "`length_attract=0.25`",
-            f"{_rate_excess(exp, 3):+.3f} excess at longest rank",
-            f"{_rate_excess(b.length.selection_by_rank, 3):+.3f} [{lo:+.3f}, {hi:+.3f}]",
+            f"{_excess(exp, 3):+.3f} excess at longest rank",
+            f"{_excess(b.length.selection_by_rank, 3):+.3f} [{lo:+.3f}, {hi:+.3f}]",
             f"p = {b.length.rank_p:.0e} → {b.length.verdict}",
         )
     )
@@ -107,13 +104,15 @@ def main() -> None:
         np.mean([v[0] / v[1] for name, v in accs.items() if name != "canonical"])
     )
     designed = -0.12 * 0.55  # know-branch share of the run
+    p_min = 1.0 / (N_BOOT + 1)
+    p_str = f"< {p_min:.0e}" if b.order.direction_p <= p_min else f"= {b.order.direction_p:.0e}"
     rows.append(
         (
             "Canonical-order memorization",
             "`canonical_bonus=0.12`",
             f"{designed:+.3f} accuracy drop on shuffles",
             f"{shuffled - canon:+.3f} measured drop",
-            f"McNemar p = {b.order.mcnemar_p:.0e} → systematic",
+            f"permutation p {p_str} → {b.order.direction}",
         )
     )
 

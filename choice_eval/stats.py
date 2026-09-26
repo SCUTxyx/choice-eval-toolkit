@@ -17,30 +17,57 @@ class CI:
         return (self.lo, self.hi)
 
 
-def cluster_bootstrap_ci(
-    statistic,
-    cluster_ids: np.ndarray,
-    n_boot: int = 1000,
-    alpha: float = 0.05,
-    seed: int = 0,
-) -> CI:
-    """Percentile bootstrap CI for ``statistic(sample_idx)``.
+def _cluster_groups(cluster_ids: np.ndarray) -> list[np.ndarray]:
+    """Row indices per cluster, via one sort — O(N log N), not O(N x clusters)."""
+    ids = np.asarray(cluster_ids)
+    order = np.argsort(ids, kind="stable")
+    sorted_ids = ids[order]
+    boundaries = np.flatnonzero(np.diff(sorted_ids)) + 1
+    return np.split(order, boundaries)
 
-    Resampling is done at the *cluster* level (typically question id), so
+
+def cluster_bootstrap_draws(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000, seed: int = 0) -> np.ndarray:
+    """Bootstrap distribution of ``stat_fn`` under question-level resampling.
+
+    Resampling happens at the *cluster* level (typically question id), so
     correlated observations — e.g. several orderings of the same question —
     move together, which is the correct unit of resampling for MCQ runs.
+
+    ``stat_fn(row_indices)`` may return a scalar or a 1-D vector (constant
+    length across draws); the result has shape ``(B,)`` or ``(B, m)``
+    respectively.
     """
-    cluster_ids = np.asarray(cluster_ids)
-    unique = np.unique(cluster_ids)
-    idx_by_cluster = {c: np.where(cluster_ids == c)[0] for c in unique}
-    n_clusters = len(unique)
+    groups = _cluster_groups(cluster_ids)
+    n_clusters = len(groups)
     rng = np.random.default_rng(seed)
-    draws = np.empty(n_boot)
+    picks = rng.integers(0, n_clusters, size=(n_boot, n_clusters))
+    draws = []
     for b in range(n_boot):
-        picked = rng.integers(0, n_clusters, size=n_clusters)
-        sample_idx = np.concatenate([idx_by_cluster[unique[c]] for c in picked])
-        draws[b] = statistic(sample_idx)
-    return CI(*np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)]))
+        idx = np.concatenate([groups[c] for c in picks[b]])
+        draws.append(np.atleast_1d(stat_fn(idx)))
+    out = np.asarray(draws)
+    if out.ndim == 2 and out.shape[1] == 1:
+        return out[:, 0]
+    return out
+
+
+def cluster_bootstrap_ci(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000, alpha: float = 0.05, seed: int = 0) -> CI:
+    """Percentile bootstrap CI for a scalar statistic (see above for the design)."""
+    draws = cluster_bootstrap_draws(stat_fn, cluster_ids, n_boot, seed)
+    if draws.ndim != 1:
+        raise ValueError("cluster_bootstrap_ci expects a scalar statistic; "
+                         "use cluster_bootstrap_ci_vec for vector statistics")
+    lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return CI(float(lo), float(hi))
+
+
+def cluster_bootstrap_ci_vec(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000, alpha: float = 0.05, seed: int = 0) -> np.ndarray:
+    """Percentile bootstrap CIs for a vector statistic; returns shape (m, 2)."""
+    draws = cluster_bootstrap_draws(stat_fn, cluster_ids, n_boot, seed)
+    if draws.ndim != 2:
+        raise ValueError("cluster_bootstrap_ci_vec expects a vector statistic")
+    lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)], axis=0)
+    return np.column_stack([lo, hi])
 
 
 def chi2_uniform(counts: np.ndarray) -> tuple[float, float, float]:
@@ -63,6 +90,9 @@ def mcnemar_exact(b: int, c: int) -> tuple[float, float]:
     """Exact McNemar test on discordant pair counts (b, c).
 
     Returns (chi2 statistic with continuity correction, two-sided p-value).
+    Valid when each question contributes one independent pair; for runs with
+    more than two orderings use the variant-permutation test in
+    :mod:`choice_eval.order` instead.
     """
     if b + c == 0:
         return 0.0, 1.0

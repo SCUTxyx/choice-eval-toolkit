@@ -1,9 +1,18 @@
-"""Confidence calibration audit: ECE / MCE / reliability diagram data.
+"""Confidence calibration audit: ECE / MCE / reliability diagram / AUROC.
 
-Calibration here answers: *when the model says 80%, is it right 80% of the
-time?* Only answered questions with a stated confidence are used. CIs use a
-cluster bootstrap over questions, matching the correlated structure of
-multi-variant runs.
+Two complementary properties of a confidence score are measured:
+
+* *Calibration* — when the model says 80%, is it right 80% of the time?
+  (ECE / MCE over confidence bins, reliability diagram data.)
+* *Discrimination* — does higher confidence mean more likely correct at all?
+  (AUROC of confidence for correctness; a model can be badly calibrated yet
+  still rank its answers perfectly, or vice versa.)
+
+Only answered questions with a stated confidence are used. CIs use a cluster
+bootstrap over questions, matching the correlated structure of multi-variant
+runs. ECE is a slightly optimistic-biased estimator at small sample sizes
+(see method notes in the report); the bootstrap CI conveys sampling error but
+not this bias.
 """
 
 from __future__ import annotations
@@ -11,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy import stats
 
 from .arrays import RunArrays, to_arrays
 from .schema import EvalRun
@@ -20,11 +30,14 @@ from .stats import cluster_bootstrap_ci
 @dataclass
 class CalibrationAudit:
     n: int
+    skipped: str | None
     accuracy: float
     mean_confidence: float
     ece: float
     ece_ci: tuple[float, float]
     mce: float
+    auroc: float
+    auroc_ci: tuple[float, float]
     direction: str  # overconfident / underconfident / balanced
     binning: str
     bin_edges: np.ndarray
@@ -55,6 +68,16 @@ def expected_calibration_error(conf, correct, edges) -> float:
     return float(ece)
 
 
+def confidence_auroc(conf, correct) -> float:
+    """P(higher confidence for a random correct answer than a random wrong one)."""
+    pos = conf[correct == 1]
+    neg = conf[correct == 0]
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan")
+    u = stats.mannwhitneyu(pos, neg, alternative="greater").statistic
+    return float(u / (len(pos) * len(neg)))
+
+
 def audit_calibration(
     run: EvalRun,
     n_bins: int = 10,
@@ -65,12 +88,25 @@ def audit_calibration(
 ) -> CalibrationAudit:
     arr: RunArrays = to_arrays(run)
     valid = arr.answered & ~np.isnan(arr.conf)
+    n = int(valid.sum())
+    if n == 0:
+        skipped = (
+            "no answered responses carry confidence; log the model's stated "
+            "probability for the selected answer to enable this audit"
+        )
+        nan = float("nan")
+        return CalibrationAudit(
+            n=0, skipped=skipped, accuracy=nan, mean_confidence=nan,
+            ece=nan, ece_ci=(nan, nan), mce=nan, auroc=nan, auroc_ci=(nan, nan),
+            direction="not available", binning=binning,
+            bin_edges=np.linspace(0, 1, n_bins + 1),
+            bin_accuracy=np.full(n_bins, nan), bin_confidence=np.full(n_bins, nan),
+            bin_counts=np.zeros(n_bins, dtype=int), verdict="not available",
+        )
+
     conf = arr.conf[valid]
     correct = arr.correct[valid].astype(float)
     qid = arr.qid[valid]
-    n = int(valid.sum())
-    if n == 0:
-        raise ValueError("no answered responses with confidence; calibration cannot be computed")
 
     edges = _bin_edges(conf, n_bins, binning)
     idx = np.clip(np.searchsorted(edges, conf, side="right") - 1, 0, len(edges) - 2)
@@ -95,6 +131,15 @@ def audit_calibration(
         qid, n_boot, alpha, seed,
     ).as_tuple()
 
+    auroc = confidence_auroc(conf, correct)
+    if np.isnan(auroc):
+        auroc_ci = (float("nan"), float("nan"))
+    else:
+        auroc_ci = cluster_bootstrap_ci(
+            lambda idx_: confidence_auroc(conf[idx_], correct[idx_]),
+            qid, n_boot, alpha, seed + 3,
+        ).as_tuple()
+
     mean_conf = float(conf.mean())
     acc = float(correct.mean())
     diff = mean_conf - acc
@@ -111,11 +156,14 @@ def audit_calibration(
 
     return CalibrationAudit(
         n=n,
+        skipped=None,
         accuracy=acc,
         mean_confidence=mean_conf,
         ece=ece,
         ece_ci=ece_ci,
         mce=mce,
+        auroc=auroc,
+        auroc_ci=auroc_ci,
         direction=direction,
         binning=binning,
         bin_edges=edges,

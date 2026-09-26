@@ -39,6 +39,17 @@ def to_arrays(run: EvalRun) -> RunArrays:
         )
     k = ks.pop()
 
+    seen: set[tuple[str, str]] = set()
+    for r in responses:
+        key = (r.question_id, r.variant_id)
+        if key in seen:
+            raise ValueError(
+                f"duplicate (question_id, variant_id) pair {key!r}: each question "
+                "must appear at most once per ordering (for repeated samples of the "
+                "same ordering, aggregate first or use distinct variant ids)"
+            )
+        seen.add(key)
+
     q_names = sorted({r.question_id for r in responses})
     q_code = {q: i for i, q in enumerate(q_names)}
     v_names = sorted({r.variant_id for r in responses})

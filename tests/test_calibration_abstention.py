@@ -43,11 +43,15 @@ def test_equal_mass_binning_has_balanced_counts():
     assert counts.max() / counts.min() < 2.0
 
 
-def test_calibration_requires_confidence():
+def test_calibration_skips_gracefully_without_confidence():
     run = EvalRun(name="empty")
     run.add(Response("q1", 4, 0, 1))  # no confidence
-    with pytest.raises(ValueError, match="confidence"):
-        audit_calibration(run)
+    audit = audit_calibration(run)
+    assert audit.skipped is not None
+    assert np.isnan(audit.ece)
+    abst = audit_abstention(run)
+    assert abst.skipped is not None
+    assert abst.abstain_rate == 1.0
 
 
 # -------------------------------------------------------------- abstention --

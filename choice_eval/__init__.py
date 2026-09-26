@@ -2,27 +2,28 @@
 
 Audits a set of MCQ responses (optionally under several option orderings) for:
 
-* position / label bias (chi-square + effect size + bootstrap CIs),
+* position / label bias (chi-square + effect size + cluster-bootstrap CIs),
 * answer-key imbalance and gold-length artifacts on the dataset side,
 * length bias (selection by length rank + within-question z-score),
-* ordering consistency with McNemar's test on paired correctness,
-* confidence calibration (ECE / MCE / reliability diagram),
+* ordering consistency with a variant-permutation test for directional asymmetry,
+* confidence calibration (ECE / MCE / reliability diagram / AUROC),
 * selective prediction (risk-coverage, AURC, abstention threshold).
 
 Everything runs on plain numpy/scipy — no model calls, no GPU, no datasets.
+Missing inputs (confidence, option lengths, option ids) degrade to clearly
+marked skipped sections instead of errors.
 """
 
 from .abstention import AbstentionAudit, audit_abstention
 from .arrays import RunArrays, to_arrays
-from .calibration import CalibrationAudit, audit_calibration
-from .generators import generate_run
+from .calibration import CalibrationAudit, audit_calibration, confidence_auroc
+from .generators import expected_selection_rates, generate_run
 from .length import LengthAudit, audit_length
 from .order import OrderAudit, audit_order
 from .position import PositionAudit, audit_position
-from .report import AuditBundle, run_audit, write_report
+from .report import AuditBundle, bundle_to_dict, run_audit, write_report, write_results_json
 from .schema import EvalRun, Response, load_jsonl, save_jsonl
-
-__version__ = "0.1.0"
+from ._version import __version__
 
 __all__ = [
     "EvalRun",
@@ -35,14 +36,18 @@ __all__ = [
     "CalibrationAudit",
     "AbstentionAudit",
     "generate_run",
+    "expected_selection_rates",
     "to_arrays",
     "run_audit",
     "write_report",
+    "write_results_json",
+    "bundle_to_dict",
     "audit_position",
     "audit_length",
     "audit_order",
     "audit_calibration",
     "audit_abstention",
+    "confidence_auroc",
     "load_jsonl",
     "save_jsonl",
     "__version__",
