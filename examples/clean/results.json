@@ -680,13 +680,14 @@
     ]
   ],
   "params": {
-    "toolkit_version": "0.3.1",
-    "created": "2026-09-26T20:25:48",
+    "toolkit_version": "0.4.0",
+    "created": "2026-09-26T20:58:29",
     "n_boot": 1000,
     "n_perm": 1000,
     "n_bins": 10,
     "binning": "equal_width",
-    "alpha": 0.05,
+    "ci_alpha": 0.05,
+    "test_alpha": 0.01,
     "target_risk": 0.15,
     "seed": 0
   }

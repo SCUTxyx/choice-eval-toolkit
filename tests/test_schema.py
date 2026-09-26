@@ -58,3 +58,45 @@ def test_jsonl_rejects_garbage(tmp_path):
     path.write_text("not json\n")
     with pytest.raises(ValueError, match="not valid JSON"):
         load_jsonl(path)
+
+
+def test_jsonl_rejects_silent_coercions(tmp_path):
+    """Fractional indices, booleans and stringly-typed numbers must be
+    rejected: a truncated gold_index silently moves the answer key, and a
+    boolean confidence reads as 0% or 100%."""
+    import json as _json
+
+    def line(**over):
+        rec = {"question_id": "q1", "n_options": 4, "gold_index": 1,
+               "selected_index": 0, "confidence": 0.5}
+        rec.update(over)
+        return _json.dumps(rec)
+
+    path = tmp_path / "coerce.jsonl"
+    cases = [
+        ({"gold_index": 2.5}, "gold_index"),
+        ({"gold_index": True}, "gold_index"),
+        ({"selected_index": 3.999}, "selected_index"),
+        ({"confidence": "0.8"}, "confidence"),
+        ({"confidence": True}, "confidence"),
+        ({"n_options": 4.5}, "n_options"),
+    ]
+    for over, field in cases:
+        path.write_text(line(**over) + "\n", encoding="utf-8")
+        with pytest.raises(ValueError, match=field):
+            load_jsonl(path)
+
+
+def test_jsonl_tolerates_utf8_bom(tmp_path):
+    path = tmp_path / "bom.jsonl"
+    payload = '{"question_id": "q1", "n_options": 4, "gold_index": 1, "selected_index": 0, "confidence": 0.5}\n'
+    path.write_bytes(b"\xef\xbb\xbf" + payload.encode("utf-8"))
+    run = load_jsonl(path)
+    assert len(run) == 1
+
+
+def test_jsonl_non_object_line_rejected(tmp_path):
+    path = tmp_path / "arr.jsonl"
+    path.write_text("[1, 2, 3]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON object"):
+        load_jsonl(path)

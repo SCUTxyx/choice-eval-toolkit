@@ -39,10 +39,6 @@ from .stats import chi2_uniform, cluster_bootstrap_ci_vec, verdict_from_effect
 _SEVERITY = {"none": 0, "minor": 1, "moderate": 2, "severe": 3}
 
 
-def _combine_verdict(a: str, b: str) -> str:
-    return a if _SEVERITY[a] >= _SEVERITY[b] else b
-
-
 @dataclass
 class PositionAudit:
     k: int
@@ -176,15 +172,22 @@ def audit_position(
     if skipped is None:
         # Combined verdict — the model-side conclusion about position bias:
         # - the gold-offset test is confound-free: when it fires, bias is real;
-        # - the marginal test is confound-free only under a balanced key;
+        # - the marginal test is confound-free only under a balanced key, and
+        #   then counts at its own severity;
         # - marginal signal + imbalanced key + silent offset test cannot be
         #   attributed (high accuracy on a skewed key looks identical), so the
         #   honest verdict is "inconclusive".
         key_imbalanced = gold_verdict in ("minor", "moderate", "severe")
-        if offset_verdict in _SEVERITY and offset_verdict != "none":
-            verdict = offset_verdict
+        effective = [
+            v for v, ok in (
+                (offset_verdict, True),
+                (marginal_verdict, not key_imbalanced),
+            ) if ok and v in _SEVERITY and v != "none"
+        ]
+        if effective:
+            verdict = max(effective, key=lambda v: _SEVERITY[v])
         elif marginal_verdict in _SEVERITY and marginal_verdict != "none":
-            verdict = marginal_verdict if not key_imbalanced else "inconclusive"
+            verdict = "inconclusive"
         else:
             verdict = "none"
     else:

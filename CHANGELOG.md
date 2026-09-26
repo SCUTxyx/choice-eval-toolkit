@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0 — 2026-09-26
+
+Public-beta hardening: strict data-quality gates at the loader, sharper
+verdict semantics, and a structural-invariant fuzz suite.
+
+### Added
+- **Strict numeric typing in the JSONL loader.** Fractional indices
+  (`gold_index: 2.5` was silently truncated — moving the answer key),
+  booleans (`confidence: true` read as 100%) and stringly-typed numbers are
+  rejected with a line-precise message instead of coerced. Non-object lines
+  are rejected; UTF-8 BOM is tolerated.
+- **Structural-invariant fuzz suite** (`tests/test_invariants.py`): eight
+  randomized generator configurations hammered through the full pipeline
+  asserting rates sum to 1, every CI covers its point estimate, no NaN leaks
+  into JSON, and every configuration renders a report.
+- Verdict semantics corner: under a *balanced* key both position tests are
+  valid, so the combined verdict takes the more severe of the two (previously
+  a strong marginal signal could be down-graded by a milder offset result).
+  Documented with targeted tests.
+- Slot labels for runs with more than 26 options (A…Z, then L27, L28, …).
+- Performance reference: 100k responses audit end to end in ~30 s at B = 1000.
+
 ## 0.3.1 — 2026-09-26
 
 Edge-case hardening round, found by inspection + targeted probes.

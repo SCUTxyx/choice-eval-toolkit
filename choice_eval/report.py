@@ -77,7 +77,8 @@ def run_audit(
         "n_perm": n_perm,
         "n_bins": n_bins,
         "binning": binning,
-        "alpha": 0.05,
+        "ci_alpha": 0.05,
+        "test_alpha": 0.01,
         "target_risk": target_risk,
         "seed": seed,
     }
@@ -152,6 +153,11 @@ def _pfmt(p: float) -> str:
     return f"{p:.4f}"
 
 
+def _slot_labels(k: int) -> list[str]:
+    """A, B, ... Z, then L27, L28, ... for runs with more than 26 options."""
+    return [chr(65 + i) if i < 26 else f"L{i + 1}" for i in range(k)]
+
+
 def _write_figures(b: AuditBundle, out: Path) -> None:
     pa, la, ca, ab = b.position, b.length, b.calibration, b.abstention
 
@@ -162,7 +168,7 @@ def _write_figures(b: AuditBundle, out: Path) -> None:
         ax.bar(x, pa.selection_rates, yerr=yerr, capsize=4, color="#4C72B0", alpha=0.85)
         ax.axhline(1.0 / pa.k, color="crimson", ls="--", lw=1, label=f"uniform = {1.0 / pa.k:.3f}")
         ax.set_ylim(0, max(pa.selection_ci[:, 1].max() * 1.3, 0.35))  # headroom for legend
-        ax.set_xticks(x, [chr(65 + i) for i in range(pa.k)])
+        ax.set_xticks(x, _slot_labels(pa.k))
         ax.set_xlabel("presented position")
         ax.set_ylabel("selection rate")
         ax.set_title("Selection rate by position")
@@ -224,7 +230,7 @@ def _write_figures(b: AuditBundle, out: Path) -> None:
 def _render(b: AuditBundle, title: str | None) -> str:
     pa, la, oa, ca, ab = b.position, b.length, b.order, b.calibration, b.abstention
     k = b.k
-    letters = [chr(65 + i) for i in range(k)]
+    letters = _slot_labels(k)
     today = _dt.date.today().isoformat()
     title = title or f"Bias & Calibration Audit — {b.run_name}"
     p = b.params
@@ -241,8 +247,8 @@ def _render(b: AuditBundle, title: str | None) -> str:
     L.append(
         f"*Toolkit v{p.get('toolkit_version', '?')} · B = {p.get('n_boot')} bootstrap / "
         f"{p.get('n_perm')} permutations · seed {p.get('seed')} · {p.get('n_bins')} "
-        f"{p.get('binning')} calibration bins · α = 0.01 · target risk {p.get('target_risk'):.0%} "
-        "— machine-readable results in `results.json`.*"
+        f"{p.get('binning')} calibration bins · 95% CIs · tests at α = 0.01 · target risk "
+        f"{p.get('target_risk'):.0%} — machine-readable results in `results.json`.*"
     )
     if b.n_questions < 30:
         L.append("")

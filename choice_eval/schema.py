@@ -61,10 +61,32 @@ class EvalRun:
         return len(self.responses)
 
 
+def _as_int(value, field: str, lineno: int) -> int:
+    """Strict integer coercion: booleans and fractional values are rejected."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"line {lineno}: {field} must be an integer, got {value!r}")
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError(f"line {lineno}: {field} must be an integer, got {value!r}")
+    return int(value)
+
+
+def _as_float(value, field: str, lineno: int) -> float:
+    """Strict float coercion: booleans and numeric strings are rejected."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"line {lineno}: {field} must be a number, got {value!r}")
+    return float(value)
+
+
 def load_jsonl(path: str | Path, name: str | None = None) -> EvalRun:
-    """Load a run from a JSONL file; one line per response."""
+    """Load a run from a JSONL file; one line per response.
+
+    Numeric fields are strictly typed: fractional indices, booleans and
+    stringly-typed numbers are rejected with a line-precise message rather
+    than silently coerced (a truncated ``gold_index`` silently moves the
+    answer key; a boolean confidence reads as 0% or 100%).
+    """
     run = EvalRun(name=name or Path(path).stem)
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, "r", encoding="utf-8-sig") as fh:  # utf-8-sig tolerates a BOM
         for lineno, line in enumerate(fh, 1):
             line = line.strip()
             if not line:
@@ -73,19 +95,28 @@ def load_jsonl(path: str | Path, name: str | None = None) -> EvalRun:
                 record = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"{path}:{lineno}: not valid JSON ({exc})") from exc
+            if not isinstance(record, dict):
+                raise ValueError(f"{path}:{lineno}: each line must be a JSON object")
             missing = [f for f in REQUIRED_FIELDS if f not in record]
             if missing:
                 raise ValueError(f"{path}:{lineno}: missing required field(s) {missing}")
             unknown = [f for f in record if f not in REQUIRED_FIELDS + OPTIONAL_FIELDS]
             if unknown:
                 raise ValueError(f"{path}:{lineno}: unknown field(s) {unknown}")
+            gold_index = _as_int(record["gold_index"], "gold_index", lineno)
+            selected = record["selected_index"]
+            selected_index = None if selected is None else _as_int(selected, "selected_index", lineno)
+            confidence = record.get("confidence")
+            if confidence is not None:
+                confidence = _as_float(confidence, "confidence", lineno)
+            n_options = _as_int(record["n_options"], "n_options", lineno)
             run.add(
                 Response(
                     question_id=str(record["question_id"]),
-                    n_options=int(record["n_options"]),
-                    gold_index=int(record["gold_index"]),
-                    selected_index=None if record["selected_index"] is None else int(record["selected_index"]),
-                    confidence=None if record.get("confidence") is None else float(record["confidence"]),
+                    n_options=n_options,
+                    gold_index=gold_index,
+                    selected_index=selected_index,
+                    confidence=confidence,
                     option_lengths=record.get("option_lengths"),
                     option_ids=record.get("option_ids"),
                     variant_id=str(record.get("variant_id", "default")),

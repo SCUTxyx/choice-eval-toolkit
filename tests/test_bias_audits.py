@@ -120,6 +120,53 @@ def test_position_test_not_fooled_by_imbalanced_key_alone():
     assert audit.gold_verdict == "severe"  # dataset side flags the key
 
 
+def test_combined_verdict_balanced_key_takes_max_severity():
+    # Under a balanced key BOTH tests are valid; if the offset test finds only
+    # minor distortion while the marginal finds severe, the verdict must not
+    # down-grade to the offset's severity. Construct a model with a strong
+    # absolute pull at C *and* a mild relative pull: offset fires mildly,
+    # marginal fires strongly, key balanced -> verdict "severe".
+    rng = np.random.default_rng(11)
+    run = EvalRun(name="both")
+    for i in range(6000):
+        gold = int(rng.integers(4))
+        correct = rng.random() < 0.6
+        if correct:
+            sel = gold
+        else:
+            u = rng.random()
+            if u < 0.5:
+                sel = 2  # strong absolute attractor at C
+            elif u < 0.65:
+                sel = (gold + 1) % 4  # mild relative pull
+            else:
+                sel = int(rng.choice([p for p in range(4) if p != gold]))
+        run.add(Response(f"q{i}", 4, gold_index=gold, selected_index=sel, confidence=0.8))
+    audit = audit_position(run, n_boot=200, seed=0)
+    assert audit.gold_verdict == "none"
+    assert audit.offset_verdict in ("minor", "moderate")
+    assert audit.marginal_verdict == "severe"
+    assert audit.verdict == "severe"
+
+
+def test_combined_verdict_offset_fires_under_imbalanced_key():
+    # Offset test is confound-free: when it fires on an imbalanced key, the
+    # verdict comes from the offset test even though the marginal is unattributable.
+    rng = np.random.default_rng(13)
+    run = EvalRun(name="imbalanced-offset")
+    for i in range(4000):
+        correct = rng.random() < 0.6
+        if correct:
+            sel = 0
+        else:
+            sel = 2 if rng.random() < 0.4 else int(rng.choice([1, 3]))
+        run.add(Response(f"q{i}", 4, gold_index=0, selected_index=sel, confidence=0.8))
+    audit = audit_position(run, n_boot=200, seed=0)
+    assert audit.gold_verdict == "severe"
+    assert audit.offset_verdict in ("moderate", "severe")
+    assert audit.verdict == audit.offset_verdict
+
+
 # ------------------------------------------------------------------ length --
 
 def test_length_clean_run_is_not_flagged():

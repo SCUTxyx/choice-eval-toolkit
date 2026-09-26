@@ -3,7 +3,7 @@
 [![tests](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml/badge.svg)](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/SCUTxyx/choice-eval-toolkit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-58%20passing-brightgreen)](#verified-against-known-injected-biases)
+[![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen)](#verified-against-known-injected-biases)
 
 **Audit multiple-choice evaluation runs for position/label bias, length bias and ordering
 instability — and check whether the model's stated confidence actually means anything.**
@@ -112,7 +112,9 @@ JSONL, one response per line — one (question, option-ordering) observation:
 Logging tips: record `option_ids` so answers can be matched by *content* across orderings;
 ask each question under 2+ shuffled orderings if you want the ordering audit; include
 `option_lengths` to expose length artifacts. Each (question, ordering) pair may appear at
-most once — duplicate records are rejected with a clear error.
+most once — duplicate records are rejected with a clear error. Numeric fields are strictly
+typed: fractional indices, booleans and stringly-typed numbers are rejected with a
+line-precise message instead of silently coerced.
 
 ## Verified against known injected biases
 
@@ -131,7 +133,9 @@ regression tests that the reported abstention threshold is exactly what the depl
 | Canonical-order memorization | `canonical_bonus=0.12` | -0.066 accuracy drop on shuffles | -0.069 measured drop | permutation p < 2e-03 → systematic |
 | Neighbor-of-gold pull (offset +2) | `offset_attract={2: 0.30}` | 0.533 share at offset +2 (uniform 0.333) | 0.525 [0.502, 0.543] | p = 2e-83 → severe |
 
-Run the suite with `pytest` (about ten seconds; everything is synthetic).
+Run the suite with `pytest` (about fifteen seconds; everything is synthetic). For scale:
+a 100,000-response run audits end to end in ~30 s at the default B = 1000; pass
+`--bootstrap 200` for interactive exploration of very large logs.
 
 ## Using it as a library
 
@@ -219,7 +223,7 @@ If this toolkit is useful in your work, please star the repo and cite:
   author = {SCUTxyx},
   year   = {2026},
   url    = {https://github.com/SCUTxyx/choice-eval-toolkit},
-  version= {0.3.0}
+  version= {0.4.0}
 }
 ```
 
