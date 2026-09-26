@@ -168,3 +168,53 @@ def test_ordering_accuracy_table_populated_for_multivariant_runs():
     names = [name for name, _, _ in bundle.ordering_accuracy]
     assert names[0] == "canonical"
     assert all(0.0 <= acc <= 1.0 for _, _, acc in bundle.ordering_accuracy)
+
+
+# ------------------------------------------------------- degenerate inputs --
+
+def test_equal_mass_binning_with_constant_confidence():
+    """Quantile binning degenerates to zero bins when all confidences are equal;
+    the fallback single bin must report |accuracy - confidence|, not ECE = 0."""
+    rng = np.random.default_rng(1)
+    run = EvalRun(name="const")
+    for i in range(2000):
+        ok = rng.random() < 0.85
+        run.add(Response(f"q{i}", 4, 0, 0 if ok else 1, confidence=0.99))
+    audit = audit_calibration(run, binning="equal_mass", n_boot=50, seed=0)
+    assert audit.ece == pytest.approx(0.15, abs=0.03)  # |0.85 - 0.99|, not 0
+    assert audit.verdict in ("moderately miscalibrated", "poorly calibrated")
+    assert audit.mce == pytest.approx(audit.ece)  # single bin: MCE == ECE
+
+
+def test_single_option_runs_rejected():
+    run = EvalRun(name="one")
+    run.add(Response("q1", 1, 0, 0, confidence=0.9))
+    with pytest.raises(ValueError, match="at least two options"):
+        to_arrays(run)
+
+
+def test_two_option_runs_pass_end_to_end():
+    """True/false style runs (k=2) must flow through the whole pipeline."""
+    run = generate_run(n_questions=300, k=2, n_variants=2, seed=3)
+    bundle = run_audit(run, n_boot=100, n_perm=100)
+    assert bundle.position.skipped is None
+    assert bundle.position.k == 2
+    assert bundle.length.skipped is None
+    assert bundle.calibration.skipped is None
+
+
+def test_invalid_parameters_rejected():
+    run = generate_run(n_questions=50, seed=1)
+    with pytest.raises(ValueError, match="n_bins"):
+        run_audit(run, n_bins=0)
+    with pytest.raises(ValueError, match="n_boot"):
+        run_audit(run, n_boot=0)
+    with pytest.raises(ValueError, match="target_risk"):
+        run_audit(run, target_risk=1.5)
+
+
+def test_small_sample_report_carries_caution(tmp_path):
+    run = generate_run(n_questions=10, n_variants=2, seed=2)
+    bundle = run_audit(run, n_boot=50, n_perm=50)
+    report = write_report(bundle, tmp_path / "out")
+    assert "Small-sample caution" in report.read_text(encoding="utf-8")

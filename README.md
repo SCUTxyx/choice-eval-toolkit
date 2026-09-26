@@ -3,7 +3,7 @@
 [![tests](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml/badge.svg)](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/SCUTxyx/choice-eval-toolkit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen)](#verified-against-known-injected-biases)
+[![Tests](https://img.shields.io/badge/tests-58%20passing-brightgreen)](#verified-against-known-injected-biases)
 
 **Audit multiple-choice evaluation runs for position/label bias, length bias and ordering
 instability — and check whether the model's stated confidence actually means anything.**
@@ -47,6 +47,8 @@ they disagree and the key is imbalanced, the report says *inconclusive* instead 
 ## Install
 
 ```bash
+pip install git+https://github.com/SCUTxyx/choice-eval-toolkit.git   # from GitHub
+# or, from a clone:
 pip install -e .          # numpy, scipy, matplotlib
 ```
 

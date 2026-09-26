@@ -53,6 +53,13 @@ def run_audit(
     target_risk: float = 0.15,
 ) -> AuditBundle:
     """Run all audits and collect them into a reportable bundle."""
+    if n_bins < 1:
+        raise ValueError("n_bins must be >= 1")
+    if n_boot < 1 or n_perm < 1:
+        raise ValueError("n_boot and n_perm must be >= 1")
+    if not 0.0 < target_risk <= 1.0:
+        raise ValueError("target_risk must be in (0, 1]")
+
     arr = to_arrays(run)
     answered = arr.answered
 
@@ -166,6 +173,7 @@ def _write_figures(b: AuditBundle, out: Path) -> None:
 
     if la.skipped is None:
         fig, ax = plt.subplots(figsize=(5.2, 3.4))
+        x = np.arange(la.k)
         yerr = np.array([la.selection_by_rank - la.selection_by_rank_ci[:, 0], la.selection_by_rank_ci[:, 1] - la.selection_by_rank])
         ax.bar(x, la.selection_by_rank, yerr=yerr, capsize=4, color="#55A868", alpha=0.85)
         ax.axhline(1.0 / la.k, color="crimson", ls="--", lw=1, label=f"uniform = {1.0 / la.k:.3f}")
@@ -236,6 +244,12 @@ def _render(b: AuditBundle, title: str | None) -> str:
         f"{p.get('binning')} calibration bins · α = 0.01 · target risk {p.get('target_risk'):.0%} "
         "— machine-readable results in `results.json`.*"
     )
+    if b.n_questions < 30:
+        L.append("")
+        L.append(
+            f"**Small-sample caution:** only {b.n_questions} questions — bootstrap CIs and "
+            "χ² approximations are unstable at this size; treat every verdict as provisional."
+        )
     L.append("")
 
     # ---- Summary -----------------------------------------------------------

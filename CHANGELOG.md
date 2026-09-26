@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.1 — 2026-09-26
+
+Edge-case hardening round, found by inspection + targeted probes.
+
+### Fixed
+- **`equal_mass` binning with constant confidence silently reported ECE = 0.**
+  When every response carries the same confidence (saturated models, unparsable
+  answers backfilled with a constant), quantile binning degenerates to zero
+  bins and the audit claimed "well calibrated" on data whose equal-width ECE
+  was 0.139. Now falls back to a single bin over [0, 1] (ECE = |acc − conf|).
+- **Bootstrap draw-shape ambiguity**: a length-1 vector statistic (k = 2 runs)
+  was indistinguishable from a scalar and crashed the vector-CI helper. The
+  draws array now keeps its shape; scalar/vector callers disambiguate.
+- Latent variable coupling between the position and length figures.
+
+### Added
+- Input validation: `n_bins ≥ 1`, `n_boot ≥ 1`, `n_perm ≥ 1`,
+  `0 < target_risk ≤ 1`, and `n_options ≥ 2` (one-option logs rejected with a
+  clear message; k = 2 true/false-style runs verified end to end).
+- Small-sample caution banner in reports with < 30 questions.
+- `pip install git+https://...` quick-install line; project URLs in metadata.
+
 ## 0.3.0 — 2026-09-26
 
 Adversarial self-audit round: two confirmed correctness/validity defects found

@@ -52,19 +52,18 @@ def cluster_bootstrap_draws(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000
             idx = np.concatenate([groups[c] for c in row])
             draws.append(np.atleast_1d(stat_fn(idx)))
         done += b
-    out = np.asarray(draws)
-    if out.ndim == 2 and out.shape[1] == 1:
-        return out[:, 0]
-    return out
+    # (B,) for scalar statistics or (B, m) for vector statistics — callers
+    # disambiguate; no automatic flattening (a length-1 vector is not a scalar).
+    return np.asarray(draws)
 
 
 def cluster_bootstrap_ci(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000, alpha: float = 0.05, seed: int = 0) -> CI:
     """Percentile bootstrap CI for a scalar statistic (see above for the design)."""
     draws = cluster_bootstrap_draws(stat_fn, cluster_ids, n_boot, seed)
-    if draws.ndim != 1:
+    if draws.ndim != 2 or draws.shape[1] != 1:
         raise ValueError("cluster_bootstrap_ci expects a scalar statistic; "
                          "use cluster_bootstrap_ci_vec for vector statistics")
-    lo, hi = np.percentile(draws, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    lo, hi = np.percentile(draws[:, 0], [100 * alpha / 2, 100 * (1 - alpha / 2)])
     return CI(float(lo), float(hi))
 
 

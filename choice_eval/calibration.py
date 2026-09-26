@@ -52,7 +52,13 @@ def _bin_edges(conf: np.ndarray, n_bins: int, binning: str) -> np.ndarray:
         return np.linspace(0.0, 1.0, n_bins + 1)
     if binning == "equal_mass":
         qs = np.quantile(conf, np.linspace(0.0, 1.0, n_bins + 1))
-        return np.unique(qs)  # collapse duplicates from tied confidences
+        edges = np.unique(qs)  # collapse duplicates from tied confidences
+        if len(edges) < 2:
+            # Constant (or near-constant) confidence: quantile binning degenerates
+            # to zero bins, which would silently report ECE = 0. Fall back to a
+            # single bin over [0, 1] so ECE = |accuracy - confidence|.
+            edges = np.array([0.0, 1.0])
+        return edges
     raise ValueError(f"unknown binning {binning!r}")
 
 

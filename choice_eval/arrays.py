@@ -38,6 +38,10 @@ def to_arrays(run: EvalRun) -> RunArrays:
             "the audits expect a fixed number of options per run"
         )
     k = ks.pop()
+    if k < 2:
+        raise ValueError(
+            f"n_options = {k}: audits need at least two options per question"
+        )
 
     seen: set[tuple[str, str]] = set()
     for r in responses:
