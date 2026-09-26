@@ -57,9 +57,12 @@ def test_biased_run_fails_every_audit_and_recover_magnitudes():
     assert bundle.calibration.ece > 0.10
     assert bundle.calibration.direction == "overconfident"
 
-    # selective prediction still extracts value from confidence
+    # selective prediction: confidence is too miscalibrated for a 15% target —
+    # every tie-consistent threshold cut exceeds it, so the honest output is
+    # "infeasible" (the pre-0.3.0 prefix logic would have reported a cut that
+    # no deployable "conf >= t" rule could reproduce)
     assert bundle.abstention.e_aurc >= 0.0
-    assert not np.isnan(bundle.abstention.suggested_threshold)
+    assert np.isnan(bundle.abstention.suggested_threshold)
 
 
 def test_report_renders_for_both_runs(tmp_path):

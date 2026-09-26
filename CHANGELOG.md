@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0 — 2026-09-26
+
+Adversarial self-audit round: two confirmed correctness/validity defects found
+by constructing failing inputs, plus the fix for each.
+
+### Fixed
+- **Abstention threshold was not deployable under tied confidences.** The
+  suggested cut was chosen as an arbitrary prefix boundary, which can fall
+  *inside* a group of tied confidences (typical when confidence saturates at
+  0.99). The reported `(threshold, coverage, risk)` then described a prefix
+  that no deployable `conf >= t` rule could reproduce — demonstrated with an
+  adversarial case where the true rule risk was 2× the reported one. The
+  threshold is now selected among tie-consistent cuts (maximum coverage with
+  rule risk within target), and a regression test replays the rule on the data
+  and asserts the stated numbers exactly.
+- **`expected_offset_rates` base share** (introduced with this release,
+  caught by its own recovery test before shipping).
+
+### Added
+- **Gold-offset position test (confound-free).** The marginal slot test
+  assumes a balanced answer key: a position-*blind* model on an imbalanced
+  key with decent accuracy was flagged "severe" (demonstrated: χ² = 2025 on a
+  bias-free synthetic model). The new test conditions on being wrong —
+  `(selected − gold) mod K` must be uniform over the K−1 offsets regardless of
+  key balance and accuracy — and the two tests are reported together with a
+  documented coverage argument. Combined verdict introduces **inconclusive**
+  for "marginal signal + imbalanced key + silent offset test" instead of
+  over-claiming.
+- Generator knob `offset_attract` (relative-position preference) with
+  closed-form ground truth `expected_offset_rates`; a fifth row in the README
+  recovery table.
+- Chunked bootstrap resampling so very large runs don't materialize a
+  B×clusters index matrix.
+
 ## 0.2.0 — 2026-09-26
 
 Research-grade pass over statistics, robustness and reproducibility.

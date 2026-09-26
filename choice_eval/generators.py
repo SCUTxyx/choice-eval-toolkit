@@ -43,6 +43,7 @@ def generate_run(
     p_guess_correct: float = 0.30,
     misconception_stick: float = 0.80,
     position_attract: dict[int, float] | None = None,
+    offset_attract: dict[int, float] | None = None,
     length_attract: float = 0.0,
     variant_flip: float = 0.0,
     canonical_bonus: float = 0.0,
@@ -51,7 +52,13 @@ def generate_run(
     abstain_prob: float = 0.0,
     name: str = "synthetic",
 ) -> EvalRun:
-    """Generate an :class:`EvalRun` with the requested biases injected."""
+    """Generate an :class:`EvalRun` with the requested biases injected.
+
+    ``offset_attract`` maps a *relative* position offset ``d`` (the option
+    ``d`` slots after the gold one, wrapping around) to the probability that a
+    wrong answer lands there — a relative-position preference that the
+    gold-offset conditional test uniquely identifies.
+    """
     if not 0.0 <= p_know <= 1.0:
         raise ValueError("p_know must be in [0, 1]")
     if position_attract and sum(position_attract.values()) > 0.95:
@@ -59,6 +66,11 @@ def generate_run(
 
     rng = np.random.default_rng(seed)
     run = EvalRun(name=name)
+    if offset_attract:
+        if any(d == 0 for d in offset_attract) or any(d < 0 or d >= k for d in offset_attract):
+            raise ValueError("offset_attract keys must be non-zero offsets in 1..k-1")
+        if sum(offset_attract.values()) > 0.95:
+            raise ValueError("total offset attractor mass must be <= 0.95")
 
     for i in range(n_questions):
         qid = f"q{i:05d}"
@@ -106,8 +118,9 @@ def generate_run(
             else:
                 selected_content = _pick_wrong_content(
                     rng, k, gold_content, pos_of_content, content_at_pos,
-                    position_attract, length_attract, misconception_stick,
-                    misconception, lengths_content,
+                    position_attract, offset_attract, length_attract,
+                    misconception_stick, misconception, lengths_content,
+                    int(gold_index),
                 )
 
             if rng.random() < abstain_prob:
@@ -130,6 +143,28 @@ def generate_run(
                 )
             )
     return run
+
+
+def expected_offset_rates(
+    k: int = 4,
+    offset_attract: dict[int, float] | None = None,
+) -> np.ndarray:
+    """Closed-form P(selected = gold + d (mod k) | wrong) under the generative model.
+
+    With no offset attractor this is uniform over the k-1 non-zero offsets.
+    With attractor mass ``b_d`` at offset ``d``:
+        offset[d] = b_d + (1 - sum(b)) / (k - 1)
+    This conditional distribution is independent of the answer-key balance and
+    of model accuracy — it is the ground truth the gold-offset test is graded
+    against.
+    """
+    offsets = np.full(k - 1, 1.0 / (k - 1))
+    if offset_attract:
+        rest = 1.0 - sum(offset_attract.values())
+        offsets[:] = rest / (k - 1)  # non-attracted offsets share the remainder
+        for d, b in offset_attract.items():
+            offsets[d - 1] = b + rest / (k - 1)
+    return offsets
 
 
 def expected_selection_rates(
@@ -198,14 +233,27 @@ def _pick_wrong_content(
     pos_of_content: np.ndarray,
     content_at_pos: np.ndarray,
     position_attract: dict[int, float] | None,
+    offset_attract: dict[int, float] | None,
     length_attract: float,
     stick: float,
     misconception: int | None,
     lengths_content: np.ndarray,
+    gold_pos: int,
 ) -> int:
-    """Draw a wrong *content* under the priority: position attractor > longest > misconception > uniform."""
+    """Draw a wrong *content* under the priority: offset attractor > position attractor > longest > misconception > uniform."""
     wrong_contents = [c for c in range(k) if c != gold_content]
-    gold_pos = int(pos_of_content[gold_content])
+
+    # Relative-position attractor: target slot is gold_pos + d (always holds a
+    # wrong content, since d != 0), so it is always actionable.
+    if offset_attract:
+        total = sum(offset_attract.values())
+        if rng.random() < total:
+            x = rng.random() * total
+            cum = 0.0
+            for d, b in sorted(offset_attract.items()):
+                cum += b
+                if x < cum:
+                    return int(content_at_pos[(gold_pos + d) % k])
 
     # A position attractor is actionable only when a *wrong* content sits there.
     actionable = [(p, b) for p, b in sorted((position_attract or {}).items()) if p != gold_pos]

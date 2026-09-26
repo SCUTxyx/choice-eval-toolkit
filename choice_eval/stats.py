@@ -40,11 +40,18 @@ def cluster_bootstrap_draws(stat_fn, cluster_ids: np.ndarray, n_boot: int = 1000
     groups = _cluster_groups(cluster_ids)
     n_clusters = len(groups)
     rng = np.random.default_rng(seed)
-    picks = rng.integers(0, n_clusters, size=(n_boot, n_clusters))
     draws = []
-    for b in range(n_boot):
-        idx = np.concatenate([groups[c] for c in picks[b]])
-        draws.append(np.atleast_1d(stat_fn(idx)))
+    # Draw in chunks so the (chunk x clusters) index matrix stays small even
+    # for runs with hundreds of thousands of questions.
+    chunk = max(1, min(n_boot, max(1, 100_000 // max(n_clusters, 1))))
+    done = 0
+    while done < n_boot:
+        b = min(chunk, n_boot - done)
+        picks = rng.integers(0, n_clusters, size=(b, n_clusters))
+        for row in picks:
+            idx = np.concatenate([groups[c] for c in row])
+            draws.append(np.atleast_1d(stat_fn(idx)))
+        done += b
     out = np.asarray(draws)
     if out.ndim == 2 and out.shape[1] == 1:
         return out[:, 0]

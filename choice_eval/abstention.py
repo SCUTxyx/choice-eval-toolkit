@@ -74,17 +74,32 @@ def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit
     aurc_oracle = float(oracle_risk.mean())
     e_aurc = aurc - aurc_oracle
 
-    # Maximum-coverage prefix whose risk stays within target.
-    feasible = np.flatnonzero(risk <= target_risk)
-    if len(feasible):
-        keep = int(feasible[-1]) + 1  # prefix length (1-based)
-        suggested = float(conf_sorted[keep - 1])  # lowest confidence still kept
-        cov_at_target = float(keep / n)
-        risk_at = float(risk[keep - 1])
+    # Suggested threshold: the *deployable rule* is "answer when conf >= t", so
+    # the cut must fall between tied confidence values — otherwise the rule
+    # selects more rows than the evaluated prefix and the stated risk is wrong.
+    # Among tie-consistent cuts, pick the one with maximum coverage whose rule
+    # risk stays within target.
+    order_asc = np.argsort(conf, kind="stable")
+    conf_asc = conf[order_asc]
+    correct_asc = correct[order_asc].astype(float)
+    cum_correct_asc = np.concatenate([[0.0], np.cumsum(correct_asc)])
+    total_correct = float(correct_asc.sum())
+
+    vals = np.unique(conf_asc)  # ascending
+    starts = np.searchsorted(conf_asc, vals, side="left")  # first row with conf >= val
+    sizes = n - starts
+    correct_in_rule = total_correct - cum_correct_asc[starts]
+    rule_risk = 1.0 - correct_in_rule / sizes
+    feasible = rule_risk <= target_risk + 1e-12
+    if feasible.any():
+        j = int(np.flatnonzero(feasible)[0])  # smallest val = maximum coverage
+        suggested = float(vals[j])
+        cov_at_target = float(sizes[j] / n)
+        risk_at = float(rule_risk[j])
     else:
         suggested = float("nan")
         cov_at_target = 0.0
-        risk_at = float(risk[0])
+        risk_at = float("nan")
 
     step = max(1, n // 200)
     return AbstentionAudit(

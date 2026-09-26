@@ -3,7 +3,7 @@
 [![tests](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml/badge.svg)](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/SCUTxyx/choice-eval-toolkit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)](#verified-against-known-injected-biases)
+[![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen)](#verified-against-known-injected-biases)
 
 **Audit multiple-choice evaluation runs for position/label bias, length bias and ordering
 instability — and check whether the model's stated confidence actually means anything.**
@@ -23,7 +23,8 @@ skipped sections rather than errors — the toolkit audits whatever you logged.
 
 | Audit | Statistic | Output |
 |---|---|---|
-| **Position / label bias** | χ² goodness-of-fit of selection rates vs uniform, Cohen's w, per-position excess with cluster-bootstrap CIs | verdict + which slot is over-picked |
+| **Position bias (marginal)** | χ² goodness-of-fit of selection rates vs uniform, Cohen's w, per-position excess with cluster-bootstrap CIs | verdict + which slot is over-picked |
+| **Position bias (gold-offset)** | χ² GOF of `(selected − gold) mod K` among wrong answers — **immune to answer-key imbalance** | confound-free model-side verdict |
 | **Answer-key balance** (dataset side) | χ² GOF of gold positions vs uniform | flags imbalanced benchmarks |
 | **Length bias** | selection rate by option-length rank (χ²) + mean length z-score of the picked option (within-question paired t-test) | verdict + longest/shortest preference |
 | **Gold-length artifact** (dataset side) | χ² GOF of the gold answer's length rank | flags "longest answer is correct" benchmarks |
@@ -33,12 +34,15 @@ skipped sections rather than errors — the toolkit audits whatever you logged.
 | **Confidence discrimination** | AUROC of confidence for correctness | calibration ≠ discrimination; both are reported |
 | **Selective prediction** | risk–coverage curve, AURC / E-AURC, maximum-coverage confidence threshold for a target risk | operational abstention rule |
 
-Statistical design, in two lines: all confidence intervals are **cluster bootstrap**
+Statistical design, in three lines: all confidence intervals are **cluster bootstrap**
 percentile intervals with questions as clusters (re-ordered variants of one question move
 together); all hypothesis tests use **one ordering per question** so rows are independent —
 conservative on multi-ordering runs, never anti-conservative. The directional ordering test
 is a **variant-label permutation test**, because pooling correlated pairs into exact
-McNemar (as most quick scripts do) overstates significance.
+McNemar (as most quick scripts do) overstates significance. The two position tests cover
+each other's confounds: the marginal test assumes a balanced key, the gold-offset test is
+immune to key imbalance but blind to absolute slot attraction under a balanced key — when
+they disagree and the key is imbalanced, the report says *inconclusive* instead of guessing.
 
 ## Install
 
@@ -67,13 +71,14 @@ Each run produces a `report.md`, four figures, and a machine-readable `results.j
 
 | Section | Clean demo run | Biased demo run |
 |---|---|---|
-| Position bias | none (p = 0.95) | **moderate** — option C over-picked, excess +0.094 [0.077, 0.112], p = 0.001 |
+| Position bias (marginal) | none (p = 0.95) | **moderate** — option C over-picked, excess +0.094 [0.077, 0.112], p = 0.001 |
+| Position bias (gold-offset) | none (p = 0.80) | none (p = 0.54) — absolute-slot pull with a balanced key |
 | Length bias | none (p = 0.58) | **moderate** — longest option 0.312 vs uniform 0.250, p < 1e-6 |
 | Ordering consistency | 0.909, mostly stable | **0.551, unstable** |
 | Ordering × correctness | symmetric (p = 1.0) | **systematic direction** (permutation p = 0.002) |
 | Calibration | ECE 0.039, slightly miscalibrated | **ECE 0.190, overconfident / poorly calibrated** |
 | Confidence AUROC | 0.793 | 0.752 |
-| Selective prediction | threshold 0.37 → 58% coverage @ 15% risk | no useful operating point — recalibrate first |
+| Selective prediction | threshold 0.37 → 58% coverage @ 15% risk | no deployable threshold reaches 15% risk — recalibrate first |
 
 Side-by-side reports live in [`examples/clean/`](examples/clean/report.md) and
 [`examples/biased/`](examples/biased/report.md).
@@ -111,9 +116,10 @@ most once — duplicate records are rejected with a clear error.
 
 Because the toolkit ships a generator that injects biases with **known magnitude**, its
 correctness is checkable without any external ground truth: inject a bias, confirm the
-audit recovers it. `tests/` (46 tests) does exactly this — including closed-form checks
-that the recovered selection-rate *vectors* match the generative model's prediction — and
-`demo/recovery_table.py` reproduces this table:
+audit recovers it. `tests/` (53 tests) does exactly this — including closed-form checks
+that the recovered selection-rate *vectors* match the generative model's prediction, and
+regression tests that the reported abstention threshold is exactly what the deployable
+`conf ≥ t` rule achieves — and `demo/recovery_table.py` reproduces this table:
 
 | Injected bias | Generator knob | Designed effect | Recovered (95% CI) | Verdict |
 |---|---|---|---|---|
@@ -121,6 +127,7 @@ that the recovered selection-rate *vectors* match the generative model's predict
 | Longest-option pull | `length_attract=0.25` | +0.063 excess at longest rank | +0.055 [+0.040, +0.070] | p = 6e-15 → moderate |
 | Overconfident answers | `confidence_shift=0.18` | large positive ECE, `overconfident` | ECE 0.132 [0.122, 0.141] | overconfident → moderately miscalibrated |
 | Canonical-order memorization | `canonical_bonus=0.12` | -0.066 accuracy drop on shuffles | -0.069 measured drop | permutation p < 2e-03 → systematic |
+| Neighbor-of-gold pull (offset +2) | `offset_attract={2: 0.30}` | 0.533 share at offset +2 (uniform 0.333) | 0.525 [0.502, 0.543] | p = 2e-83 → severe |
 
 Run the suite with `pytest` (about ten seconds; everything is synthetic).
 
@@ -153,9 +160,14 @@ truth (`expected_selection_rates`) are all importable.
   wrong one. Calibration and discrimination fail independently; reporting both prevents
   the common misreading of a well-discriminating-but-overconfident model as "calibrated".
 - **Cohen's w** — √(χ²/N) effect size for the χ² tests; verdicts combine p < 0.01 with
-  w thresholds (0.05 / 0.10 / 0.21 → none / minor / moderate / severe). With nine audits
+  w thresholds (0.05 / 0.10 / 0.21 → none / minor / moderate / severe). With ten audits
   per report, treat borderline p-values with the family of tests in mind and lean on
   effect sizes and CIs.
+- **Gold-offset test** — among wrong answers, `(selected − gold) mod K` must be uniform
+  over the non-zero offsets for a position-blind model, whatever the answer key looks
+  like. This is what makes it immune to key imbalance; the flip side is that an absolute
+  slot attractor under a *balanced* key spreads evenly across offsets, which is why the
+  marginal test is kept and the report combines both.
 - **AURC / E-AURC** — area under the risk–coverage curve when answers are sorted by stated
   confidence; E-AURC is the excess over the oracle ordering (all correct answers first).
 - **Variant-permutation test** — under the null, variant labels are exchangeable within
@@ -205,7 +217,7 @@ If this toolkit is useful in your work, please star the repo and cite:
   author = {SCUTxyx},
   year   = {2026},
   url    = {https://github.com/SCUTxyx/choice-eval-toolkit},
-  version= {0.2.0}
+  version= {0.3.0}
 }
 ```
 

@@ -37,6 +37,31 @@
     "chi2": 16.226666666666667,
     "p_value": 0.001018870538433906,
     "effect_w": 0.11628509028341605,
+    "marginal_verdict": "moderate",
+    "n_wrong": 467,
+    "offset_rates": [
+      0.32119914346895073,
+      0.3576017130620985,
+      0.32119914346895073
+    ],
+    "offset_ci": [
+      [
+        0.28051391862955033,
+        0.3640792291220556
+      ],
+      [
+        0.3168629550321199,
+        0.40471092077087795
+      ],
+      [
+        0.28051391862955033,
+        0.3618843683083512
+      ]
+    ],
+    "offset_chi2": 1.2376873661670236,
+    "offset_p": 0.538566831621018,
+    "offset_w": 0.051481007623859994,
+    "offset_verdict": "none",
     "verdict": "moderate",
     "excess": [
       -0.02194444444444446,
@@ -224,9 +249,9 @@
     "aurc": 0.2723910788430483,
     "e_aurc": 0.15992096522825872,
     "target_risk": 0.15,
-    "suggested_threshold": 0.99,
-    "coverage_at_target": 0.013333333333333334,
-    "risk_at_threshold": 0.140625,
+    "suggested_threshold": null,
+    "coverage_at_target": 0.0,
+    "risk_at_threshold": null,
     "coverage_curve": [
       0.00020833333333333335,
       0.005208333333333333,
@@ -655,8 +680,8 @@
     ]
   ],
   "params": {
-    "toolkit_version": "0.2.0",
-    "created": "2026-09-26T19:22:57",
+    "toolkit_version": "0.3.0",
+    "created": "2026-09-26T19:50:51",
     "n_boot": 1000,
     "n_perm": 1000,
     "n_bins": 10,

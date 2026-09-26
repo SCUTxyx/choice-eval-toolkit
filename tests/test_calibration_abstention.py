@@ -81,6 +81,63 @@ def test_abstention_threshold_recovered_exactly():
     assert audit.risk_at_threshold == pytest.approx(0.0)
 
 
+def test_abstention_threshold_respects_ties():
+    # 100 rows at conf 0.9 — the *first* 50 in file order are correct, the rest
+    # wrong — plus 20 rows at conf 0.1, all wrong. The optimal prefix cut falls
+    # INSIDE the tied 0.9 group, which no deployable "conf >= t" rule can
+    # reproduce. Tie-consistent cuts: t=0.9 -> risk 0.5; t=0.1 -> 50/120.
+    # Neither meets a 0.25 target, so the honest answer is "none".
+    run = EvalRun(name="ties")
+    for i in range(100):
+        run.add(Response(f"q{i}", 4, 0, 0 if i < 50 else 1, confidence=0.9))
+    for i in range(20):
+        run.add(Response(f"t{i}", 4, 0, 1, confidence=0.1))
+    audit = audit_abstention(run, target_risk=0.25)
+    assert np.isnan(audit.suggested_threshold)
+
+
+def test_abstention_max_coverage_cut_selected():
+    # 100 rows at conf 0.9 (all correct), 20 rows at conf 0.1 (all wrong).
+    # Both tie-consistent cuts are feasible under a 0.2 target; the rule must
+    # pick the one with maximum coverage: t=0.1 covers everything at risk 1/6.
+    run = EvalRun(name="ties-ok")
+    for i in range(100):
+        run.add(Response(f"q{i}", 4, 0, 0, confidence=0.9))
+    for i in range(20):
+        run.add(Response(f"t{i}", 4, 0, 1, confidence=0.1))
+    audit = audit_abstention(run, target_risk=0.20)
+    assert audit.suggested_threshold == pytest.approx(0.1)
+    assert audit.coverage_at_target == pytest.approx(1.0)
+    assert audit.risk_at_threshold == pytest.approx(1.0 / 6.0)
+
+
+def test_abstention_stated_numbers_match_deployable_rule():
+    """Regression test for the tie bug: the reported (threshold, coverage, risk)
+    must be exactly what 'conf >= threshold' achieves on the data."""
+    from choice_eval.generators import generate_run
+    from choice_eval.arrays import to_arrays
+
+    run = generate_run(
+        n_questions=1200, seed=0,
+        position_attract={2: 0.30}, length_attract=0.35,
+        confidence_shift=0.18, variant_flip=0.50, canonical_bonus=0.12,
+    )
+    audit = audit_abstention(run, target_risk=0.15)
+    arr = to_arrays(run)
+    valid = arr.answered & ~np.isnan(arr.conf)
+    conf, correct = arr.conf[valid], arr.correct[valid]
+    if not np.isnan(audit.suggested_threshold):
+        rule = conf >= audit.suggested_threshold
+        assert rule.sum() == int(round(audit.coverage_at_target * valid.sum()))
+        assert (1 - correct[rule].mean()) == pytest.approx(audit.risk_at_threshold, abs=1e-9)
+        assert audit.risk_at_threshold <= audit.target_risk + 1e-9
+    else:
+        # infeasible: EVERY tie-consistent cut must exceed the target
+        for t in np.unique(conf):
+            rule = conf >= t
+            assert (1 - correct[rule].mean()) > audit.target_risk + 1e-9
+
+
 def test_abstention_infeasible_target_returns_nan():
     confs = [0.9, 0.1]
     corrects = [False, False]

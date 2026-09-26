@@ -12,8 +12,13 @@ from __future__ import annotations
 import numpy as np
 
 from choice_eval.arrays import to_arrays
-from choice_eval.generators import expected_selection_rates, generate_run
+from choice_eval.generators import (
+    expected_offset_rates,
+    expected_selection_rates,
+    generate_run,
+)
 from choice_eval.report import run_audit
+from choice_eval.stats import cluster_bootstrap_draws
 
 N = 6000
 SEED = 3
@@ -113,6 +118,32 @@ def main() -> None:
             f"{designed:+.3f} accuracy drop on shuffles",
             f"{shuffled - canon:+.3f} measured drop",
             f"permutation p {p_str} → {b.order.direction}",
+        )
+    )
+
+    # 5. Relative-position (gold-offset) attractor — confound-free test.
+    run = generate_run(n_questions=N, seed=SEED, offset_attract={2: 0.30})
+    b = run_audit(run, n_boot=N_BOOT)
+    exp_off = expected_offset_rates(4, offset_attract={2: 0.30})
+    arr = to_arrays(run)
+    wrong = arr.answered & ~arr.correct.astype(bool)
+    offsets = (arr.sel[wrong] - arr.gold[wrong]) % 4
+    qid = arr.qid[wrong]
+
+    def stat(idx):
+        c = np.bincount(offsets[idx], minlength=4)[1:]
+        return c / c.sum()
+
+    draws = cluster_bootstrap_draws(stat, qid, N_BOOT, 1)
+    pcts = np.percentile(draws, [2.5, 97.5], axis=0)  # (2, k-1)
+    lo, hi = float(pcts[0][1]), float(pcts[1][1])
+    rows.append(
+        (
+            "Neighbor-of-gold pull (offset +2)",
+            "`offset_attract={2: 0.30}`",
+            f"{exp_off[1]:.3f} share at offset +2 (uniform {1 / 3:.3f})",
+            f"{b.position.offset_rates[1]:.3f} [{lo:.3f}, {hi:.3f}]",
+            f"p = {b.position.offset_p:.0e} → {b.position.offset_verdict}",
         )
     )
 

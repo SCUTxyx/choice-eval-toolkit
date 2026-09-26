@@ -247,8 +247,13 @@ def _render(b: AuditBundle, title: str | None) -> str:
         L.append(f"| Position bias | — | — | — | *skipped: {pa.skipped}* |")
     else:
         L.append(
-            f"| Position bias | χ² GOF vs uniform (Cohen's w = {_fmt(pa.effect_w)}) "
-            f"| χ² = {_fmt(pa.chi2, 1)} | {_pfmt(pa.p_value)} | **{pa.verdict}** |"
+            f"| Position bias (marginal) | χ² GOF vs uniform (Cohen's w = {_fmt(pa.effect_w)}) "
+            f"| χ² = {_fmt(pa.chi2, 1)} | {_pfmt(pa.p_value)} | **{pa.marginal_verdict}** |"
+        )
+        off_p = "n/a" if pa.n_wrong == 0 else _pfmt(pa.offset_p)
+        L.append(
+            f"| Position bias (gold-offset, confound-free) | χ² GOF of (sel − gold) mod K among wrongs "
+            f"(w = {_fmt(pa.offset_w)}) | χ² = {_fmt(pa.offset_chi2, 1)} | {off_p} | **{pa.offset_verdict}** |"
         )
     L.append(
         f"| Answer-key balance (dataset) | χ² GOF vs uniform (w = {_fmt(pa.gold_w)}) "
@@ -320,9 +325,36 @@ def _render(b: AuditBundle, title: str | None) -> str:
         L.append("")
         L.append(
             f"χ²({k - 1}) = {pa.chi2:.1f}, p = {_pfmt(pa.p_value)}, Cohen's w = {pa.effect_w:.3f} "
-            f"→ **{pa.verdict}**. First-position selection rate: {pa.first_rate:.3f} "
-            f"(uniform would be {1.0 / k:.3f})."
+            f"→ **{pa.marginal_verdict}**. First-position selection rate: {pa.first_rate:.3f} "
+            f"(uniform would be {1.0 / k:.3f}). This marginal test assumes a balanced answer "
+            "key (§2); with an imbalanced key, read the gold-offset test below instead."
         )
+        L.append("")
+        L.append("### Gold-offset test (confound-free)")
+        L.append("")
+        if pa.n_wrong == 0:
+            L.append("*No wrong answers in the run — nothing to condition on (a good sign).*")
+        else:
+            L.append(
+                "Among wrong answers, a position-blind model selects uniformly over the K−1 "
+                "slots *relative to the gold one*: `(selected − gold) mod K` must be uniform "
+                "over the non-zero offsets — independent of answer-key balance and accuracy. "
+                f"n = {pa.n_wrong} wrong answers (one ordering per question):"
+            )
+            L.append("")
+            L.append("| Offset (sel − gold) | " + " | ".join(f"+{d}" for d in range(1, k)) + " |")
+            L.append("|---|" + "---|" * (k - 1))
+            L.append("| Selection share | " + " | ".join(f"{a:.3f}" for a in pa.offset_rates) + " |")
+            lo_row = " | ".join(f"{pa.offset_ci[d - 1, 0]:.3f}" for d in range(1, k))
+            hi_row = " | ".join(f"{pa.offset_ci[d - 1, 1]:.3f}" for d in range(1, k))
+            L.append(f"| 95% CI low | {lo_row} |")
+            L.append(f"| 95% CI high | {hi_row} |")
+            L.append("")
+            L.append(
+                f"Uniform would be {1.0 / (k - 1):.3f} per offset. "
+                f"χ²({k - 2}) = {pa.offset_chi2:.1f}, p = {_pfmt(pa.offset_p)}, "
+                f"w = {pa.offset_w:.3f} → **{pa.offset_verdict}**."
+            )
         L.append("")
         L.append("![Selection rate by position](fig_position.png)")
         L.append("")
@@ -463,12 +495,23 @@ def _render(b: AuditBundle, title: str | None) -> str:
     L.append("## Recommendations")
     L.append("")
     recs: list[str] = []
-    if pa.skipped is None and pa.verdict != "none":
+    if pa.skipped is None and pa.verdict in ("minor", "moderate", "severe"):
         worst = int(np.nanargmax(pa.excess))
         recs.append(
-            f"Position bias detected (largest excess at **{letters[worst]}**, "
+            f"Position bias detected (largest marginal excess at **{letters[worst]}**, "
             f"{pa.excess[worst]:+.3f}). Report accuracy averaged over cyclic (or random) "
             "permutations of the options, or debias before comparing models."
+        )
+    if pa.skipped is None and pa.verdict == "inconclusive":
+        recs.append(
+            "Marginal slot preference detected, but the imbalanced answer key could explain "
+            "it (the confound-free gold-offset test is silent). Re-balance the key — or "
+            "re-run with permuted options — to attribute the signal."
+        )
+    if pa.skipped is None and pa.marginal_verdict not in ("none", "not available") and pa.gold_verdict != "none":
+        recs.append(
+            "The marginal position signal may partly reflect the imbalanced answer key "
+            "(not only model behavior) — re-balance the key before drawing conclusions."
         )
     if pa.gold_verdict != "none":
         recs.append("Re-balance the answer key across positions before drawing model conclusions.")
@@ -529,6 +572,11 @@ def _render(b: AuditBundle, title: str | None) -> str:
         "- χ² tests use α = 0.01; effect size is Cohen's w (0.1 / 0.2 / 0.3 ≈ small / medium / large). "
         "Multiple audits are reported per run, so treat borderline p-values with the "
         "family of tests in mind and lean on effect sizes and CIs.\n"
+        "- The two position tests cover each other's confounds: the marginal test assumes a "
+        "balanced answer key, while the gold-offset test (uniformity of `(selected − gold) "
+        "mod K` among wrong answers) is immune to key imbalance and accuracy — but blind to "
+        "absolute slot attraction when the key is balanced. Read them together; the combined "
+        "verdict takes the more severe of the two.\n"
         "- The directional ordering p-value is a variant-label permutation test ("
         f"{p.get('n_perm')} permutations): under the null, variant labels are exchangeable "
         "within each question, which handles the correlated pairs that would break exact "

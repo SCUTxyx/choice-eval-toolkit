@@ -2,13 +2,14 @@
 
 *Generated 2026-09-26 · 4800 responses · 1200 questions · 4 ordering(s) · 4 options · abstain/unparsable rate 0.0% · accuracy 56.5%*
 
-*Toolkit v0.2.0 · B = 1000 bootstrap / 1000 permutations · seed 0 · 10 equal_width calibration bins · α = 0.01 · target risk 15% — machine-readable results in `results.json`.*
+*Toolkit v0.3.0 · B = 1000 bootstrap / 1000 permutations · seed 0 · 10 equal_width calibration bins · α = 0.01 · target risk 15% — machine-readable results in `results.json`.*
 
 ## Summary
 
 | Audit | Key statistic | Value | p-value | Verdict |
 |---|---|---|---|---|
-| Position bias | χ² GOF vs uniform (Cohen's w = 0.116) | χ² = 16.2 | 0.0010 | **moderate** |
+| Position bias (marginal) | χ² GOF vs uniform (Cohen's w = 0.116) | χ² = 16.2 | 0.0010 | **moderate** |
+| Position bias (gold-offset, confound-free) | χ² GOF of (sel − gold) mod K among wrongs (w = 0.051) | χ² = 1.2 | 0.5386 | **none** |
 | Answer-key balance (dataset) | χ² GOF vs uniform (w = 0.065) | χ² = 5.1 | 0.1679 | **none** |
 | Length bias | χ² GOF by length rank (w = 0.197) | χ² = 46.5 | < 1e-6 | **moderate** |
 | Length artifact (dataset) | gold-at-length-rank GOF | — | 0.6340 | **balanced** |
@@ -29,7 +30,19 @@ Selection rates by presented position, with cluster-bootstrap 95% CIs (resamplin
 | C | 0.321 | [0.307, 0.334] | +0.094 [+0.077, +0.112] |
 | D | 0.219 | [0.208, 0.231] | -0.041 [-0.056, -0.026] |
 
-χ²(3) = 16.2, p = 0.0010, Cohen's w = 0.116 → **moderate**. First-position selection rate: 0.234 (uniform would be 0.250).
+χ²(3) = 16.2, p = 0.0010, Cohen's w = 0.116 → **moderate**. First-position selection rate: 0.234 (uniform would be 0.250). This marginal test assumes a balanced answer key (§2); with an imbalanced key, read the gold-offset test below instead.
+
+### Gold-offset test (confound-free)
+
+Among wrong answers, a position-blind model selects uniformly over the K−1 slots *relative to the gold one*: `(selected − gold) mod K` must be uniform over the non-zero offsets — independent of answer-key balance and accuracy. n = 467 wrong answers (one ordering per question):
+
+| Offset (sel − gold) | +1 | +2 | +3 |
+|---|---|---|---|
+| Selection share | 0.321 | 0.358 | 0.321 |
+| 95% CI low | 0.281 | 0.317 | 0.281 |
+| 95% CI high | 0.364 | 0.405 | 0.362 |
+
+Uniform would be 0.333 per offset. χ²(2) = 1.2, p = 0.5386, w = 0.051 → **none**.
 
 ![Selection rate by position](fig_position.png)
 
@@ -87,13 +100,13 @@ Discrimination: confidence AUROC = **0.752** [0.735, 0.769] — probability that
 
 Sorting answers by stated confidence: AURC = 0.272, E-AURC = 0.160.
 
-**No useful operating point exists for risk ≤ 15%**: even the most confident 1.3% of answers still err at 14.1%. Confidence is too miscalibrated to threshold on (see §5) — recalibrate before deploying selective prediction.
+No confidence level achieves risk ≤ 15% on this run — selective prediction cannot meet the target.
 
 ![Risk-coverage curve](fig_risk_coverage.png)
 
 ## Recommendations
 
-- Position bias detected (largest excess at **C**, +0.094). Report accuracy averaged over cyclic (or random) permutations of the options, or debias before comparing models.
+- Position bias detected (largest marginal excess at **C**, +0.094). Report accuracy averaged over cyclic (or random) permutations of the options, or debias before comparing models.
 - Length bias detected: control for option length (e.g. stratify accuracy by the gold option's length rank) or permute option order by length.
 - Low ordering consistency: the reported score depends on which ordering you used. Average over orderings and report consistency alongside accuracy.
 - Systematic correctness direction across orderings (often canonical-order memorization): treat single-order scores as optimistic.
@@ -104,6 +117,7 @@ Sorting answers by stated confidence: AURC = 0.272, E-AURC = 0.160.
 - All CIs are cluster bootstrap percentile intervals (B = 1000 by default) with questions as clusters.
 - χ² and t-tests use one ordering per question: re-ordered variants of the same question are strongly correlated, and testing on all rows would overstate significance. This makes the test conservative on multi-variant runs; rates and CIs use every response.
 - χ² tests use α = 0.01; effect size is Cohen's w (0.1 / 0.2 / 0.3 ≈ small / medium / large). Multiple audits are reported per run, so treat borderline p-values with the family of tests in mind and lean on effect sizes and CIs.
+- The two position tests cover each other's confounds: the marginal test assumes a balanced answer key, while the gold-offset test (uniformity of `(selected − gold) mod K` among wrong answers) is immune to key imbalance and accuracy — but blind to absolute slot attraction when the key is balanced. Read them together; the combined verdict takes the more severe of the two.
 - The directional ordering p-value is a variant-label permutation test (1000 permutations): under the null, variant labels are exchangeable within each question, which handles the correlated pairs that would break exact McNemar on multi-ordering runs.
 - E-AURC is the excess risk-coverage area over the oracle ordering (all correct answers first); smaller is better, 0 is unattainable in practice.
 - ECE is mildly upward-biased at small n (finite-sample noise inside bins); the reliability diagram and per-bin counts let you judge when bins are too sparse.
