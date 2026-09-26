@@ -2,7 +2,7 @@
 
 *Generated 2026-09-26 · 4800 responses · 1200 questions · 4 ordering(s) · 4 options · abstain/unparsable rate 0.0% · accuracy 63.7%*
 
-*Toolkit v0.4.0 · B = 1000 bootstrap / 1000 permutations · seed 0 · 10 equal_width calibration bins · 95% CIs · tests at α = 0.01 · target risk 15% — machine-readable results in `results.json`.*
+*Toolkit v0.5.0 · B = 1000 bootstrap / 1000 permutations · seed 0 · 10 equal_width calibration bins · 95% CIs · tests at α = 0.01 · target risk 15% — machine-readable results in `results.json`.*
 
 ## Summary
 

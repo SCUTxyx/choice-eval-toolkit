@@ -17,12 +17,40 @@ marked skipped sections instead of errors.
 from .abstention import AbstentionAudit, audit_abstention
 from .arrays import RunArrays, to_arrays
 from .calibration import CalibrationAudit, audit_calibration, confidence_auroc
-from .generators import expected_selection_rates, generate_run
+from .generators import (
+    expected_offset_rates,
+    expected_pair_slot_rate,
+    expected_p_chosen_longer,
+    expected_selection_rates,
+    expected_swap_consistency,
+    generate_pairwise,
+    generate_run,
+)
 from .length import LengthAudit, audit_length
 from .order import OrderAudit, audit_order
+from .pairwise import ContentWinRate, PairwiseAudit, audit_pairwise
 from .position import PositionAudit, audit_position
-from .report import AuditBundle, bundle_to_dict, run_audit, write_report, write_results_json
-from .schema import EvalRun, Response, load_jsonl, save_jsonl
+from .report import (
+    AuditBundle,
+    PairwiseBundle,
+    bundle_to_dict,
+    run_audit,
+    run_pairwise_audit,
+    write_pairwise_report,
+    write_report,
+    write_results_json,
+)
+from .schema import (
+    EvalRun,
+    PairJudgment,
+    PairwiseRun,
+    Response,
+    load_any,
+    load_jsonl,
+    load_pairwise_jsonl,
+    save_jsonl,
+    save_pairwise_jsonl,
+)
 from ._version import __version__
 
 __all__ = [

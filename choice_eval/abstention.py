@@ -30,6 +30,7 @@ class AbstentionAudit:
     risk_at_threshold: float
     coverage_curve: np.ndarray  # downsampled for plotting
     risk_curve: np.ndarray
+    risk_ladder: list[dict]  # operating points at several risk levels
 
 
 def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit:
@@ -48,6 +49,7 @@ def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit
             aurc=nan, e_aurc=nan, target_risk=target_risk,
             suggested_threshold=nan, coverage_at_target=nan, risk_at_threshold=nan,
             coverage_curve=np.array([0.0, 1.0]), risk_curve=np.array([nan, nan]),
+            risk_ladder=[],
         )
 
     conf = arr.conf[valid]
@@ -85,21 +87,29 @@ def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit
     cum_correct_asc = np.concatenate([[0.0], np.cumsum(correct_asc)])
     total_correct = float(correct_asc.sum())
 
-    vals = np.unique(conf_asc)  # ascending
-    starts = np.searchsorted(conf_asc, vals, side="left")  # first row with conf >= val
-    sizes = n - starts
-    correct_in_rule = total_correct - cum_correct_asc[starts]
-    rule_risk = 1.0 - correct_in_rule / sizes
-    feasible = rule_risk <= target_risk + 1e-12
-    if feasible.any():
-        j = int(np.flatnonzero(feasible)[0])  # smallest val = maximum coverage
-        suggested = float(vals[j])
-        cov_at_target = float(sizes[j] / n)
-        risk_at = float(rule_risk[j])
-    else:
-        suggested = float("nan")
-        cov_at_target = 0.0
-        risk_at = float("nan")
+    def _max_coverage_cut(target: float) -> tuple[float, float, float]:
+        vals = np.unique(conf_asc)  # ascending
+        starts = np.searchsorted(conf_asc, vals, side="left")  # first row with conf >= val
+        sizes = n - starts
+        correct_in_rule = total_correct - cum_correct_asc[starts]
+        rule_risk = 1.0 - correct_in_rule / sizes
+        feasible = np.flatnonzero(rule_risk <= target + 1e-12)
+        if len(feasible):
+            j = int(feasible[0])  # smallest val = maximum coverage
+            return float(vals[j]), float(sizes[j] / n), float(rule_risk[j])
+        return float("nan"), 0.0, float("nan")
+
+    suggested, cov_at_target, risk_at = _max_coverage_cut(target_risk)
+
+    # Risk ladder: operating points at several risk levels. Embodied and other
+    # safety-critical deployments have asymmetric error costs, so the right
+    # target is a policy choice — expose the trade-off curve's key points.
+    risk_ladder = []
+    for level in (0.05, 0.10, 0.15, 0.20, 0.30):
+        thr, cov, risk_lvl = _max_coverage_cut(level)
+        risk_ladder.append(
+            {"target_risk": level, "threshold": thr, "coverage": cov, "achieved_risk": risk_lvl}
+        )
 
     step = max(1, n // 200)
     return AbstentionAudit(
@@ -115,4 +125,5 @@ def audit_abstention(run: EvalRun, target_risk: float = 0.15) -> AbstentionAudit
         risk_at_threshold=risk_at,
         coverage_curve=coverage[::step],
         risk_curve=risk[::step],
+        risk_ladder=risk_ladder,
     )

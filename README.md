@@ -3,7 +3,7 @@
 [![tests](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml/badge.svg)](https://github.com/SCUTxyx/choice-eval-toolkit/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/SCUTxyx/choice-eval-toolkit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen)](#verified-against-known-injected-biases)
+[![Tests](https://img.shields.io/badge/tests-84%20passing-brightgreen)](#verified-against-known-injected-biases)
 
 **Audit multiple-choice evaluation runs for position/label bias, length bias and ordering
 instability — and check whether the model's stated confidence actually means anything.**
@@ -32,7 +32,8 @@ skipped sections rather than errors — the toolkit audits whatever you logged.
 | **Directional ordering asymmetry** | variant-label permutation test (exact McNemar when V = 2) | catches canonical-order memorization |
 | **Confidence calibration** | ECE / MCE (equal-width or equal-mass bins), reliability diagram, bootstrap CI | over- vs under-confidence |
 | **Confidence discrimination** | AUROC of confidence for correctness | calibration ≠ discrimination; both are reported |
-| **Selective prediction** | risk–coverage curve, AURC / E-AURC, maximum-coverage confidence threshold for a target risk | operational abstention rule |
+| **Selective prediction** | risk–coverage curve, AURC / E-AURC, maximum-coverage confidence threshold for a target risk + a multi-level **risk ladder** (5/10/15/20/30%) | operational abstention rules for asymmetric-cost (e.g. safety-critical) deployments |
+| **Pairwise preference (arena-style)** | slot preference (binomial vs coin flip), swap consistency across presentation orders, length preference, per-content corrected win rates | audits RoboArena-style A/B judging of trajectories/plans — see [docs/EMBODIED.md](docs/EMBODIED.md) |
 
 Statistical design, in three lines: all confidence intervals are **cluster bootstrap**
 percentile intervals with questions as clusters (re-ordered variants of one question move
@@ -56,14 +57,17 @@ Requires Python ≥ 3.9 (CI tests 3.9–3.12).
 
 ## Quickstart
 
-**1. Generate two synthetic demo runs and their audit reports** (a clean model and a model
-with five injected pathologies), written to `examples/`:
+**1. Generate synthetic demo runs and their audit reports** (multiple-choice:
+a clean model and a model with five injected pathologies; arena-style
+pairwise: a clean judge and one with slot/length/order pathologies):
 
 ```bash
 python -m choice_eval demo --out examples --n 1200 --variants 4
+python -m choice_eval demo-pairwise --out examples --n 1000
 ```
 
-**2. Audit your own evaluation log:**
+**2. Audit your own evaluation log** (MCQ and pairwise JSONL are
+auto-detected):
 
 ```bash
 python -m choice_eval audit my_run.jsonl --out my_report --binning equal_mass
@@ -82,8 +86,14 @@ Each run produces a `report.md`, four figures, and a machine-readable `results.j
 | Confidence AUROC | 0.793 | 0.752 |
 | Selective prediction | threshold 0.37 → 58% coverage @ 15% risk | no deployable threshold reaches 15% risk — recalibrate first |
 
-Side-by-side reports live in [`examples/clean/`](examples/clean/report.md) and
-[`examples/biased/`](examples/biased/report.md).
+Side-by-side reports live in [`examples/clean/`](examples/clean/report.md),
+[`examples/biased/`](examples/biased/report.md) (MCQ) and
+[`examples/pairwise_clean/`](examples/pairwise_clean/report.md),
+[`examples/pairwise_biased/`](examples/pairwise_biased/report.md) (pairwise).
+
+**Embodied AI?** Action-selection MCQs, embodied QA and trajectory-preference
+arenas all map onto these two schemas — see [docs/EMBODIED.md](docs/EMBODIED.md)
+for the field-by-field mapping and which audits matter most per format.
 
 ![Position bias in the biased demo run](examples/biased/fig_position.png)
 
@@ -116,6 +126,21 @@ most once — duplicate records are rejected with a clear error. Numeric fields 
 typed: fractional indices, booleans and stringly-typed numbers are rejected with a
 line-precise message instead of silently coerced.
 
+### Pairwise (arena-style) schema
+
+For A/B preference judging (e.g. two trajectories presented to a human or LLM judge):
+
+```json
+{"pair_id": "task17", "content_a_id": "policy_v3_traj9", "content_b_id": "policy_v4_traj2",
+ "slot_of_a": 0, "selected_slot": 1, "confidence": 0.7,
+ "context_lengths": [220, 185], "variant_id": "ba"}
+```
+
+`slot_of_a` is the slot (0 = shown first) where content A appeared in this judgment;
+`selected_slot` is the winner's slot, `null` = tie/undecided; `context_lengths` is
+`[len(a), len(b)]`. Judge each pair under **both** orders to unlock the swap-consistency
+audit. See [docs/EMBODIED.md](docs/EMBODIED.md) for embodied-specific guidance.
+
 ## Verified against known injected biases
 
 Because the toolkit ships a generator that injects biases with **known magnitude**, its
@@ -132,6 +157,17 @@ regression tests that the reported abstention threshold is exactly what the depl
 | Overconfident answers | `confidence_shift=0.18` | large positive ECE, `overconfident` | ECE 0.132 [0.122, 0.141] | overconfident → moderately miscalibrated |
 | Canonical-order memorization | `canonical_bonus=0.12` | -0.066 accuracy drop on shuffles | -0.069 measured drop | permutation p < 2e-03 → systematic |
 | Neighbor-of-gold pull (offset +2) | `offset_attract={2: 0.30}` | 0.533 share at offset +2 (uniform 0.333) | 0.525 [0.502, 0.543] | p = 2e-83 → severe |
+
+Pairwise (arena-style) recovery — each row injects one judging pathology
+(`demo/recovery_table.py` covers the MCQ rows; closed forms in
+`choice_eval.generators`):
+
+| Injected judging bias | Generator knob | Designed effect | Recovered (n = 4000 pairs) | Verdict |
+|---|---|---|---|---|
+| First-slot preference | `slot_pref=0.20` | 0.600 P(pick slot 0) | 0.600, p < 1e-6 | moderate |
+| Order-sensitive judging | `order_flip=0.40` | 0.669 swap consistency | 0.666 | unstable |
+| Longer-description preference | `length_pref=0.35` | 0.588 P(chosen longer) | 0.586 | severe |
+| Clean judge | `discernment=0.75` only | 0.781 consistency, no biases | 0.781 / 0.503 / 0.475 | mostly stable / none / minor |
 
 Run the suite with `pytest` (about fifteen seconds; everything is synthetic). For scale:
 a 100,000-response run audits end to end in ~30 s at the default B = 1000; pass
@@ -198,18 +234,20 @@ truth (`expected_selection_rates`) are all importable.
 
 ```
 choice_eval/
-  schema.py        data model + JSONL I/O
+  schema.py        data models (MCQ + pairwise) + strict JSONL I/O + auto-detect
   generators.py    synthetic runs with injectable, known biases + closed-form ground truth
-  position.py      position/label bias + answer-key balance
+  position.py      position/label bias (marginal + confound-free gold-offset)
   length.py        length bias + gold-length artifact
   order.py         ordering consistency + variant-permutation directional test
   calibration.py   ECE / MCE / reliability diagram / AUROC
-  abstention.py    risk–coverage, AURC, threshold optimization
-  report.py        Markdown report + figures + JSON export
-  cli.py           `choice-eval audit` / `choice-eval demo`
-tests/             46 tests incl. closed-form injection-recovery checks
-demo/              recovery_table.py — regenerates the README table
-examples/          demo output: two reports + figures + results.json
+  abstention.py    risk–coverage, AURC, threshold optimization + risk ladder
+  pairwise.py      arena-style preference audits (slot/swap/length/win-rates)
+  report.py        Markdown reports + figures + JSON export (MCQ & pairwise)
+  cli.py           `choice-eval audit` / `demo` / `demo-pairwise`
+tests/             84 tests incl. closed-form injection-recovery + invariant fuzz
+demo/              recovery_table.py — regenerates the README tables
+docs/EMBODIED.md   embodied-AI format mapping guide
+examples/          demo output: four reports + figures + results.json
 ```
 
 ## Cite
@@ -223,7 +261,7 @@ If this toolkit is useful in your work, please star the repo and cite:
   author = {SCUTxyx},
   year   = {2026},
   url    = {https://github.com/SCUTxyx/choice-eval-toolkit},
-  version= {0.4.0}
+  version= {0.5.0}
 }
 ```
 

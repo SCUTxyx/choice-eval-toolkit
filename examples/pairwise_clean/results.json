@@ -1,0 +1,848 @@
+{
+  "run_name": "demo-pairwise-pairwise_clean",
+  "n_judgments": 2000,
+  "n_pairs": 1000,
+  "pairwise": {
+    "n_judgments": 2000,
+    "n_pairs": 1000,
+    "skipped": null,
+    "n_decided": 2000,
+    "pick_first_rate": 0.504,
+    "pick_first_ci": [
+      0.4885,
+      0.5175
+    ],
+    "slot_p": 0.7373250398720049,
+    "slot_effect": 0.0040000000000000036,
+    "slot_verdict": "none",
+    "slot_balance_rate": 0.495,
+    "slot_balance_p": 0.7759635149561624,
+    "slot_balance": "balanced",
+    "n_swap_pairs": 1000,
+    "swap_consistency": 0.786,
+    "swap_ci": [
+      0.761,
+      0.811
+    ],
+    "swap_verdict": "mostly stable",
+    "p_chosen_longer": 0.5040733197556008,
+    "p_chosen_longer_ci": [
+      0.46656142705822196,
+      0.5394667085817189
+    ],
+    "mean_length_advantage": 0.7963340122199593,
+    "length_verdict": "none",
+    "tie_rate": 0.0,
+    "content_win_rates": [
+      {
+        "content_id": "cand0048",
+        "appearances": 38,
+        "wins": 37,
+        "win_rate": 0.9736842105263158,
+        "win_rate_as_first": 0.9473684210526315,
+        "win_rate_as_second": 1.0
+      },
+      {
+        "content_id": "cand0047",
+        "appearances": 44,
+        "wins": 42,
+        "win_rate": 0.9545454545454546,
+        "win_rate_as_first": 1.0,
+        "win_rate_as_second": 0.9090909090909091
+      },
+      {
+        "content_id": "cand0041",
+        "appearances": 38,
+        "wins": 35,
+        "win_rate": 0.9210526315789473,
+        "win_rate_as_first": 0.9473684210526315,
+        "win_rate_as_second": 0.8947368421052632
+      },
+      {
+        "content_id": "cand0039",
+        "appearances": 32,
+        "wins": 29,
+        "win_rate": 0.90625,
+        "win_rate_as_first": 0.875,
+        "win_rate_as_second": 0.9375
+      },
+      {
+        "content_id": "cand0071",
+        "appearances": 28,
+        "wins": 25,
+        "win_rate": 0.8928571428571429,
+        "win_rate_as_first": 0.9285714285714286,
+        "win_rate_as_second": 0.8571428571428571
+      },
+      {
+        "content_id": "cand0079",
+        "appearances": 46,
+        "wins": 40,
+        "win_rate": 0.8695652173913043,
+        "win_rate_as_first": 0.8695652173913043,
+        "win_rate_as_second": 0.8695652173913043
+      },
+      {
+        "content_id": "cand0077",
+        "appearances": 44,
+        "wins": 38,
+        "win_rate": 0.8636363636363636,
+        "win_rate_as_first": 0.8636363636363636,
+        "win_rate_as_second": 0.8636363636363636
+      },
+      {
+        "content_id": "cand0089",
+        "appearances": 36,
+        "wins": 31,
+        "win_rate": 0.8611111111111112,
+        "win_rate_as_first": 0.8888888888888888,
+        "win_rate_as_second": 0.8333333333333334
+      },
+      {
+        "content_id": "cand0086",
+        "appearances": 34,
+        "wins": 29,
+        "win_rate": 0.8529411764705882,
+        "win_rate_as_first": 0.8823529411764706,
+        "win_rate_as_second": 0.8235294117647058
+      },
+      {
+        "content_id": "cand0066",
+        "appearances": 36,
+        "wins": 30,
+        "win_rate": 0.8333333333333334,
+        "win_rate_as_first": 0.7777777777777778,
+        "win_rate_as_second": 0.8888888888888888
+      },
+      {
+        "content_id": "cand0067",
+        "appearances": 40,
+        "wins": 33,
+        "win_rate": 0.825,
+        "win_rate_as_first": 0.8,
+        "win_rate_as_second": 0.85
+      },
+      {
+        "content_id": "cand0074",
+        "appearances": 22,
+        "wins": 18,
+        "win_rate": 0.8181818181818182,
+        "win_rate_as_first": 0.8181818181818182,
+        "win_rate_as_second": 0.8181818181818182
+      },
+      {
+        "content_id": "cand0021",
+        "appearances": 38,
+        "wins": 31,
+        "win_rate": 0.8157894736842105,
+        "win_rate_as_first": 0.8421052631578947,
+        "win_rate_as_second": 0.7894736842105263
+      },
+      {
+        "content_id": "cand0091",
+        "appearances": 40,
+        "wins": 32,
+        "win_rate": 0.8,
+        "win_rate_as_first": 0.7,
+        "win_rate_as_second": 0.9
+      },
+      {
+        "content_id": "cand0038",
+        "appearances": 30,
+        "wins": 24,
+        "win_rate": 0.8,
+        "win_rate_as_first": 0.8,
+        "win_rate_as_second": 0.8
+      },
+      {
+        "content_id": "cand0046",
+        "appearances": 34,
+        "wins": 27,
+        "win_rate": 0.7941176470588235,
+        "win_rate_as_first": 0.8235294117647058,
+        "win_rate_as_second": 0.7647058823529411
+      },
+      {
+        "content_id": "cand0019",
+        "appearances": 32,
+        "wins": 25,
+        "win_rate": 0.78125,
+        "win_rate_as_first": 0.8125,
+        "win_rate_as_second": 0.75
+      },
+      {
+        "content_id": "cand0053",
+        "appearances": 36,
+        "wins": 28,
+        "win_rate": 0.7777777777777778,
+        "win_rate_as_first": 0.9444444444444444,
+        "win_rate_as_second": 0.6111111111111112
+      },
+      {
+        "content_id": "cand0042",
+        "appearances": 44,
+        "wins": 34,
+        "win_rate": 0.7727272727272727,
+        "win_rate_as_first": 0.7727272727272727,
+        "win_rate_as_second": 0.7727272727272727
+      },
+      {
+        "content_id": "cand0087",
+        "appearances": 22,
+        "wins": 17,
+        "win_rate": 0.7727272727272727,
+        "win_rate_as_first": 0.8181818181818182,
+        "win_rate_as_second": 0.7272727272727273
+      },
+      {
+        "content_id": "cand0062",
+        "appearances": 26,
+        "wins": 20,
+        "win_rate": 0.7692307692307693,
+        "win_rate_as_first": 0.6153846153846154,
+        "win_rate_as_second": 0.9230769230769231
+      },
+      {
+        "content_id": "cand0024",
+        "appearances": 38,
+        "wins": 29,
+        "win_rate": 0.7631578947368421,
+        "win_rate_as_first": 0.6842105263157895,
+        "win_rate_as_second": 0.8421052631578947
+      },
+      {
+        "content_id": "cand0095",
+        "appearances": 36,
+        "wins": 27,
+        "win_rate": 0.75,
+        "win_rate_as_first": 0.7777777777777778,
+        "win_rate_as_second": 0.7222222222222222
+      },
+      {
+        "content_id": "cand0072",
+        "appearances": 26,
+        "wins": 19,
+        "win_rate": 0.7307692307692307,
+        "win_rate_as_first": 0.7692307692307693,
+        "win_rate_as_second": 0.6923076923076923
+      },
+      {
+        "content_id": "cand0085",
+        "appearances": 40,
+        "wins": 29,
+        "win_rate": 0.725,
+        "win_rate_as_first": 0.7,
+        "win_rate_as_second": 0.75
+      },
+      {
+        "content_id": "cand0002",
+        "appearances": 58,
+        "wins": 42,
+        "win_rate": 0.7241379310344828,
+        "win_rate_as_first": 0.7241379310344828,
+        "win_rate_as_second": 0.7241379310344828
+      },
+      {
+        "content_id": "cand0006",
+        "appearances": 28,
+        "wins": 20,
+        "win_rate": 0.7142857142857143,
+        "win_rate_as_first": 0.7142857142857143,
+        "win_rate_as_second": 0.7142857142857143
+      },
+      {
+        "content_id": "cand0043",
+        "appearances": 52,
+        "wins": 36,
+        "win_rate": 0.6923076923076923,
+        "win_rate_as_first": 0.6923076923076923,
+        "win_rate_as_second": 0.6923076923076923
+      },
+      {
+        "content_id": "cand0094",
+        "appearances": 48,
+        "wins": 33,
+        "win_rate": 0.6875,
+        "win_rate_as_first": 0.75,
+        "win_rate_as_second": 0.625
+      },
+      {
+        "content_id": "cand0049",
+        "appearances": 32,
+        "wins": 22,
+        "win_rate": 0.6875,
+        "win_rate_as_first": 0.75,
+        "win_rate_as_second": 0.625
+      },
+      {
+        "content_id": "cand0034",
+        "appearances": 46,
+        "wins": 31,
+        "win_rate": 0.6739130434782609,
+        "win_rate_as_first": 0.6956521739130435,
+        "win_rate_as_second": 0.6521739130434783
+      },
+      {
+        "content_id": "cand0005",
+        "appearances": 42,
+        "wins": 28,
+        "win_rate": 0.6666666666666666,
+        "win_rate_as_first": 0.6666666666666666,
+        "win_rate_as_second": 0.6666666666666666
+      },
+      {
+        "content_id": "cand0050",
+        "appearances": 58,
+        "wins": 37,
+        "win_rate": 0.6379310344827587,
+        "win_rate_as_first": 0.6551724137931034,
+        "win_rate_as_second": 0.6206896551724138
+      },
+      {
+        "content_id": "cand0068",
+        "appearances": 56,
+        "wins": 35,
+        "win_rate": 0.625,
+        "win_rate_as_first": 0.5714285714285714,
+        "win_rate_as_second": 0.6785714285714286
+      },
+      {
+        "content_id": "cand0044",
+        "appearances": 48,
+        "wins": 30,
+        "win_rate": 0.625,
+        "win_rate_as_first": 0.625,
+        "win_rate_as_second": 0.625
+      },
+      {
+        "content_id": "cand0018",
+        "appearances": 34,
+        "wins": 21,
+        "win_rate": 0.6176470588235294,
+        "win_rate_as_first": 0.5882352941176471,
+        "win_rate_as_second": 0.6470588235294118
+      },
+      {
+        "content_id": "cand0064",
+        "appearances": 50,
+        "wins": 30,
+        "win_rate": 0.6,
+        "win_rate_as_first": 0.64,
+        "win_rate_as_second": 0.56
+      },
+      {
+        "content_id": "cand0020",
+        "appearances": 42,
+        "wins": 25,
+        "win_rate": 0.5952380952380952,
+        "win_rate_as_first": 0.6666666666666666,
+        "win_rate_as_second": 0.5238095238095238
+      },
+      {
+        "content_id": "cand0023",
+        "appearances": 44,
+        "wins": 26,
+        "win_rate": 0.5909090909090909,
+        "win_rate_as_first": 0.5454545454545454,
+        "win_rate_as_second": 0.6363636363636364
+      },
+      {
+        "content_id": "cand0001",
+        "appearances": 28,
+        "wins": 16,
+        "win_rate": 0.5714285714285714,
+        "win_rate_as_first": 0.5,
+        "win_rate_as_second": 0.6428571428571429
+      },
+      {
+        "content_id": "cand0057",
+        "appearances": 44,
+        "wins": 25,
+        "win_rate": 0.5681818181818182,
+        "win_rate_as_first": 0.5909090909090909,
+        "win_rate_as_second": 0.5454545454545454
+      },
+      {
+        "content_id": "cand0007",
+        "appearances": 38,
+        "wins": 21,
+        "win_rate": 0.5526315789473685,
+        "win_rate_as_first": 0.47368421052631576,
+        "win_rate_as_second": 0.631578947368421
+      },
+      {
+        "content_id": "cand0025",
+        "appearances": 40,
+        "wins": 22,
+        "win_rate": 0.55,
+        "win_rate_as_first": 0.5,
+        "win_rate_as_second": 0.6
+      },
+      {
+        "content_id": "cand0055",
+        "appearances": 44,
+        "wins": 24,
+        "win_rate": 0.5454545454545454,
+        "win_rate_as_first": 0.5454545454545454,
+        "win_rate_as_second": 0.5454545454545454
+      },
+      {
+        "content_id": "cand0031",
+        "appearances": 44,
+        "wins": 24,
+        "win_rate": 0.5454545454545454,
+        "win_rate_as_first": 0.6363636363636364,
+        "win_rate_as_second": 0.45454545454545453
+      },
+      {
+        "content_id": "cand0013",
+        "appearances": 44,
+        "wins": 24,
+        "win_rate": 0.5454545454545454,
+        "win_rate_as_first": 0.5454545454545454,
+        "win_rate_as_second": 0.5454545454545454
+      },
+      {
+        "content_id": "cand0029",
+        "appearances": 52,
+        "wins": 27,
+        "win_rate": 0.5192307692307693,
+        "win_rate_as_first": 0.5769230769230769,
+        "win_rate_as_second": 0.46153846153846156
+      },
+      {
+        "content_id": "cand0011",
+        "appearances": 36,
+        "wins": 18,
+        "win_rate": 0.5,
+        "win_rate_as_first": 0.5,
+        "win_rate_as_second": 0.5
+      },
+      {
+        "content_id": "cand0073",
+        "appearances": 32,
+        "wins": 16,
+        "win_rate": 0.5,
+        "win_rate_as_first": 0.5,
+        "win_rate_as_second": 0.5
+      },
+      {
+        "content_id": "cand0096",
+        "appearances": 26,
+        "wins": 13,
+        "win_rate": 0.5,
+        "win_rate_as_first": 0.6153846153846154,
+        "win_rate_as_second": 0.38461538461538464
+      },
+      {
+        "content_id": "cand0000",
+        "appearances": 48,
+        "wins": 23,
+        "win_rate": 0.4791666666666667,
+        "win_rate_as_first": 0.4583333333333333,
+        "win_rate_as_second": 0.5
+      },
+      {
+        "content_id": "cand0003",
+        "appearances": 44,
+        "wins": 21,
+        "win_rate": 0.4772727272727273,
+        "win_rate_as_first": 0.4090909090909091,
+        "win_rate_as_second": 0.5454545454545454
+      },
+      {
+        "content_id": "cand0035",
+        "appearances": 50,
+        "wins": 23,
+        "win_rate": 0.46,
+        "win_rate_as_first": 0.48,
+        "win_rate_as_second": 0.44
+      },
+      {
+        "content_id": "cand0056",
+        "appearances": 46,
+        "wins": 21,
+        "win_rate": 0.45652173913043476,
+        "win_rate_as_first": 0.43478260869565216,
+        "win_rate_as_second": 0.4782608695652174
+      },
+      {
+        "content_id": "cand0060",
+        "appearances": 34,
+        "wins": 15,
+        "win_rate": 0.4411764705882353,
+        "win_rate_as_first": 0.47058823529411764,
+        "win_rate_as_second": 0.4117647058823529
+      },
+      {
+        "content_id": "cand0063",
+        "appearances": 30,
+        "wins": 13,
+        "win_rate": 0.43333333333333335,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.5333333333333333
+      },
+      {
+        "content_id": "cand0033",
+        "appearances": 40,
+        "wins": 17,
+        "win_rate": 0.425,
+        "win_rate_as_first": 0.55,
+        "win_rate_as_second": 0.3
+      },
+      {
+        "content_id": "cand0032",
+        "appearances": 44,
+        "wins": 18,
+        "win_rate": 0.4090909090909091,
+        "win_rate_as_first": 0.36363636363636365,
+        "win_rate_as_second": 0.45454545454545453
+      },
+      {
+        "content_id": "cand0037",
+        "appearances": 52,
+        "wins": 21,
+        "win_rate": 0.40384615384615385,
+        "win_rate_as_first": 0.4230769230769231,
+        "win_rate_as_second": 0.38461538461538464
+      },
+      {
+        "content_id": "cand0070",
+        "appearances": 62,
+        "wins": 25,
+        "win_rate": 0.4032258064516129,
+        "win_rate_as_first": 0.41935483870967744,
+        "win_rate_as_second": 0.3870967741935484
+      },
+      {
+        "content_id": "cand0092",
+        "appearances": 48,
+        "wins": 19,
+        "win_rate": 0.3958333333333333,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.4583333333333333
+      },
+      {
+        "content_id": "cand0009",
+        "appearances": 36,
+        "wins": 14,
+        "win_rate": 0.3888888888888889,
+        "win_rate_as_first": 0.3888888888888889,
+        "win_rate_as_second": 0.3888888888888889
+      },
+      {
+        "content_id": "cand0022",
+        "appearances": 66,
+        "wins": 25,
+        "win_rate": 0.3787878787878788,
+        "win_rate_as_first": 0.3939393939393939,
+        "win_rate_as_second": 0.36363636363636365
+      },
+      {
+        "content_id": "cand0082",
+        "appearances": 48,
+        "wins": 18,
+        "win_rate": 0.375,
+        "win_rate_as_first": 0.4166666666666667,
+        "win_rate_as_second": 0.3333333333333333
+      },
+      {
+        "content_id": "cand0081",
+        "appearances": 32,
+        "wins": 12,
+        "win_rate": 0.375,
+        "win_rate_as_first": 0.4375,
+        "win_rate_as_second": 0.3125
+      },
+      {
+        "content_id": "cand0090",
+        "appearances": 46,
+        "wins": 17,
+        "win_rate": 0.3695652173913043,
+        "win_rate_as_first": 0.391304347826087,
+        "win_rate_as_second": 0.34782608695652173
+      },
+      {
+        "content_id": "cand0076",
+        "appearances": 38,
+        "wins": 14,
+        "win_rate": 0.3684210526315789,
+        "win_rate_as_first": 0.2631578947368421,
+        "win_rate_as_second": 0.47368421052631576
+      },
+      {
+        "content_id": "cand0028",
+        "appearances": 36,
+        "wins": 13,
+        "win_rate": 0.3611111111111111,
+        "win_rate_as_first": 0.4444444444444444,
+        "win_rate_as_second": 0.2777777777777778
+      },
+      {
+        "content_id": "cand0052",
+        "appearances": 56,
+        "wins": 20,
+        "win_rate": 0.35714285714285715,
+        "win_rate_as_first": 0.39285714285714285,
+        "win_rate_as_second": 0.32142857142857145
+      },
+      {
+        "content_id": "cand0016",
+        "appearances": 46,
+        "wins": 16,
+        "win_rate": 0.34782608695652173,
+        "win_rate_as_first": 0.2608695652173913,
+        "win_rate_as_second": 0.43478260869565216
+      },
+      {
+        "content_id": "cand0080",
+        "appearances": 32,
+        "wins": 11,
+        "win_rate": 0.34375,
+        "win_rate_as_first": 0.4375,
+        "win_rate_as_second": 0.25
+      },
+      {
+        "content_id": "cand0026",
+        "appearances": 30,
+        "wins": 10,
+        "win_rate": 0.3333333333333333,
+        "win_rate_as_first": 0.26666666666666666,
+        "win_rate_as_second": 0.4
+      },
+      {
+        "content_id": "cand0078",
+        "appearances": 28,
+        "wins": 9,
+        "win_rate": 0.32142857142857145,
+        "win_rate_as_first": 0.2857142857142857,
+        "win_rate_as_second": 0.35714285714285715
+      },
+      {
+        "content_id": "cand0059",
+        "appearances": 44,
+        "wins": 14,
+        "win_rate": 0.3181818181818182,
+        "win_rate_as_first": 0.2727272727272727,
+        "win_rate_as_second": 0.36363636363636365
+      },
+      {
+        "content_id": "cand0036",
+        "appearances": 32,
+        "wins": 10,
+        "win_rate": 0.3125,
+        "win_rate_as_first": 0.375,
+        "win_rate_as_second": 0.25
+      },
+      {
+        "content_id": "cand0030",
+        "appearances": 36,
+        "wins": 11,
+        "win_rate": 0.3055555555555556,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.2777777777777778
+      },
+      {
+        "content_id": "cand0045",
+        "appearances": 46,
+        "wins": 14,
+        "win_rate": 0.30434782608695654,
+        "win_rate_as_first": 0.30434782608695654,
+        "win_rate_as_second": 0.30434782608695654
+      },
+      {
+        "content_id": "cand0008",
+        "appearances": 36,
+        "wins": 10,
+        "win_rate": 0.2777777777777778,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.2222222222222222
+      },
+      {
+        "content_id": "cand0097",
+        "appearances": 36,
+        "wins": 10,
+        "win_rate": 0.2777777777777778,
+        "win_rate_as_first": 0.2222222222222222,
+        "win_rate_as_second": 0.3333333333333333
+      },
+      {
+        "content_id": "cand0058",
+        "appearances": 22,
+        "wins": 6,
+        "win_rate": 0.2727272727272727,
+        "win_rate_as_first": 0.18181818181818182,
+        "win_rate_as_second": 0.36363636363636365
+      },
+      {
+        "content_id": "cand0093",
+        "appearances": 26,
+        "wins": 7,
+        "win_rate": 0.2692307692307692,
+        "win_rate_as_first": 0.23076923076923078,
+        "win_rate_as_second": 0.3076923076923077
+      },
+      {
+        "content_id": "cand0040",
+        "appearances": 34,
+        "wins": 9,
+        "win_rate": 0.2647058823529412,
+        "win_rate_as_first": 0.29411764705882354,
+        "win_rate_as_second": 0.23529411764705882
+      },
+      {
+        "content_id": "cand0065",
+        "appearances": 40,
+        "wins": 10,
+        "win_rate": 0.25,
+        "win_rate_as_first": 0.3,
+        "win_rate_as_second": 0.2
+      },
+      {
+        "content_id": "cand0051",
+        "appearances": 28,
+        "wins": 7,
+        "win_rate": 0.25,
+        "win_rate_as_first": 0.21428571428571427,
+        "win_rate_as_second": 0.2857142857142857
+      },
+      {
+        "content_id": "cand0054",
+        "appearances": 38,
+        "wins": 9,
+        "win_rate": 0.23684210526315788,
+        "win_rate_as_first": 0.21052631578947367,
+        "win_rate_as_second": 0.2631578947368421
+      },
+      {
+        "content_id": "cand0017",
+        "appearances": 56,
+        "wins": 13,
+        "win_rate": 0.23214285714285715,
+        "win_rate_as_first": 0.2857142857142857,
+        "win_rate_as_second": 0.17857142857142858
+      },
+      {
+        "content_id": "cand0014",
+        "appearances": 48,
+        "wins": 11,
+        "win_rate": 0.22916666666666666,
+        "win_rate_as_first": 0.25,
+        "win_rate_as_second": 0.20833333333333334
+      },
+      {
+        "content_id": "cand0084",
+        "appearances": 42,
+        "wins": 9,
+        "win_rate": 0.21428571428571427,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.09523809523809523
+      },
+      {
+        "content_id": "cand0069",
+        "appearances": 38,
+        "wins": 8,
+        "win_rate": 0.21052631578947367,
+        "win_rate_as_first": 0.0,
+        "win_rate_as_second": 0.42105263157894735
+      },
+      {
+        "content_id": "cand0010",
+        "appearances": 50,
+        "wins": 10,
+        "win_rate": 0.2,
+        "win_rate_as_first": 0.2,
+        "win_rate_as_second": 0.2
+      },
+      {
+        "content_id": "cand0015",
+        "appearances": 38,
+        "wins": 7,
+        "win_rate": 0.18421052631578946,
+        "win_rate_as_first": 0.15789473684210525,
+        "win_rate_as_second": 0.21052631578947367
+      },
+      {
+        "content_id": "cand0004",
+        "appearances": 38,
+        "wins": 7,
+        "win_rate": 0.18421052631578946,
+        "win_rate_as_first": 0.10526315789473684,
+        "win_rate_as_second": 0.2631578947368421
+      },
+      {
+        "content_id": "cand0098",
+        "appearances": 56,
+        "wins": 10,
+        "win_rate": 0.17857142857142858,
+        "win_rate_as_first": 0.2857142857142857,
+        "win_rate_as_second": 0.07142857142857142
+      },
+      {
+        "content_id": "cand0083",
+        "appearances": 36,
+        "wins": 6,
+        "win_rate": 0.16666666666666666,
+        "win_rate_as_first": 0.16666666666666666,
+        "win_rate_as_second": 0.16666666666666666
+      },
+      {
+        "content_id": "cand0075",
+        "appearances": 36,
+        "wins": 6,
+        "win_rate": 0.16666666666666666,
+        "win_rate_as_first": 0.3333333333333333,
+        "win_rate_as_second": 0.0
+      },
+      {
+        "content_id": "cand0027",
+        "appearances": 56,
+        "wins": 9,
+        "win_rate": 0.16071428571428573,
+        "win_rate_as_first": 0.17857142857142858,
+        "win_rate_as_second": 0.14285714285714285
+      },
+      {
+        "content_id": "cand0088",
+        "appearances": 50,
+        "wins": 7,
+        "win_rate": 0.14,
+        "win_rate_as_first": 0.04,
+        "win_rate_as_second": 0.24
+      },
+      {
+        "content_id": "cand0012",
+        "appearances": 24,
+        "wins": 3,
+        "win_rate": 0.125,
+        "win_rate_as_first": 0.16666666666666666,
+        "win_rate_as_second": 0.08333333333333333
+      },
+      {
+        "content_id": "cand0061",
+        "appearances": 36,
+        "wins": 4,
+        "win_rate": 0.1111111111111111,
+        "win_rate_as_first": 0.1111111111111111,
+        "win_rate_as_second": 0.1111111111111111
+      },
+      {
+        "content_id": "cand0099",
+        "appearances": 40,
+        "wins": 3,
+        "win_rate": 0.075,
+        "win_rate_as_first": 0.1,
+        "win_rate_as_second": 0.05
+      }
+    ]
+  },
+  "params": {
+    "toolkit_version": "0.5.0",
+    "created": "2026-09-26T23:45:50",
+    "n_boot": 1000,
+    "ci_alpha": 0.05,
+    "test_alpha": 0.01,
+    "seed": 0,
+    "format": "pairwise"
+  }
+}

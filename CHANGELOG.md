@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.0 — 2026-09-26
+
+Embodied-evaluation extension: arena-style pairwise preference audits.
+
+### Added
+- **Pairwise preference audit** (`choice_eval/pairwise.py`) for
+  RoboArena-style A/B judging of trajectories/plans/policies:
+  - *slot preference* — P(judge picks what is shown first) vs coin flip,
+    exact binomial test + pair-level cluster bootstrap CI, with a
+    *slot-balance* design check that flags confounded (non-randomized)
+    presentations — mirroring the MCQ answer-key balance audit;
+  - *swap consistency* — same winner across both presentation orders of the
+    same pair (order-sensitive judging, independent of slot balance);
+  - *length preference* — P(chosen description is longer) + mean advantage;
+  - *corrected leaderboard* — per-content win rates split by as-first /
+    as-second slot.
+- New schema: `PairJudgment` / `PairwiseRun`, `load_pairwise_jsonl`,
+  `save_pairwise_jsonl`, and `load_any` (auto-detects MCQ vs pairwise from
+  the first record; `choice-eval audit` handles both transparently).
+- `generate_pairwise` with three closed-form ground truths
+  (`expected_pair_slot_rate = 0.5 + s/2`,
+  `expected_swap_consistency = (1-f)(1+d²)/2 + f/2`,
+  `expected_p_chosen_longer = 0.5 + (1-d)·λ`); the README recovery table
+  gains a pairwise section.
+- `choice-eval demo-pairwise` — clean vs biased arena-style demo reports
+  (`examples/pairwise_clean/`, `examples/pairwise_biased/`).
+- **Risk ladder** in the abstention audit: deployable (threshold, coverage,
+  achieved-risk) operating points at 5/10/15/20/30% risk — for embodied and
+  other asymmetric-cost deployments where the right target is a policy
+  choice.
+- `docs/EMBODIED.md` — mapping guide from embodied evaluation formats
+  (action-selection MCQ, embodied QA, trajectory preference arenas) to the
+  two schemas, with per-format audit guidance.
+
+### Fixed (caught by the new closed-form tests before release)
+- Length-preference statistic misaligned winners with slots: the winner's
+  content must be resolved through `slot_of_a`, which alternates across
+  presentation orders — the slot-0 shortcut washed the signal out
+  (0.496 measured vs 0.575 designed).
+- Slot-balance check passed the success count as the trial count
+  (`binomtest(k=sum, n=sum)` → p ≈ 0), flagging every balanced design as
+  imbalanced.
+- Variable shadowing in the risk ladder (`risk` reused) crashed MCQ audits.
+
 ## 0.4.0 — 2026-09-26
 
 Public-beta hardening: strict data-quality gates at the loader, sharper

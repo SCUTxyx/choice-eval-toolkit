@@ -655,6 +655,38 @@
       0.4309579192218228,
       0.43256890385019986,
       0.43395436466401505
+    ],
+    "risk_ladder": [
+      {
+        "target_risk": 0.05,
+        "threshold": null,
+        "coverage": 0.0,
+        "achieved_risk": null
+      },
+      {
+        "target_risk": 0.1,
+        "threshold": null,
+        "coverage": 0.0,
+        "achieved_risk": null
+      },
+      {
+        "target_risk": 0.15,
+        "threshold": null,
+        "coverage": 0.0,
+        "achieved_risk": null
+      },
+      {
+        "target_risk": 0.2,
+        "threshold": null,
+        "coverage": 0.0,
+        "achieved_risk": null
+      },
+      {
+        "target_risk": 0.3,
+        "threshold": 0.517523215290973,
+        "coverage": 0.66875,
+        "achieved_risk": 0.30000000000000004
+      }
     ]
   },
   "ordering_accuracy": [
@@ -680,8 +712,8 @@
     ]
   ],
   "params": {
-    "toolkit_version": "0.4.0",
-    "created": "2026-09-26T20:58:31",
+    "toolkit_version": "0.5.0",
+    "created": "2026-09-26T23:31:12",
     "n_boot": 1000,
     "n_perm": 1000,
     "n_bins": 10,

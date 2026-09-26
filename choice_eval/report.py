@@ -21,8 +21,9 @@ from .arrays import to_arrays  # noqa: E402
 from .calibration import CalibrationAudit, audit_calibration  # noqa: E402
 from .length import LengthAudit, audit_length  # noqa: E402
 from .order import OrderAudit, audit_order  # noqa: E402
+from .pairwise import PairwiseAudit, audit_pairwise  # noqa: E402
 from .position import PositionAudit, audit_position  # noqa: E402
-from .schema import EvalRun  # noqa: E402
+from .schema import EvalRun, PairwiseRun  # noqa: E402
 
 
 @dataclass
@@ -609,5 +610,290 @@ def _render(b: AuditBundle, title: str | None) -> str:
         "statistics and counted in the abstain rate.\n"
         "- Equal-width bins can be noisy at the extremes; pass `--binning equal_mass` for "
         "quantile bins."
+    )
+    return "\n".join(L) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Pairwise (arena-style) reports
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PairwiseBundle:
+    run_name: str
+    n_judgments: int
+    n_pairs: int
+    pairwise: PairwiseAudit
+    params: dict = field(default_factory=dict)
+
+
+def run_pairwise_audit(
+    run: PairwiseRun,
+    n_boot: int = 1000,
+    seed: int = 0,
+) -> PairwiseBundle:
+    if n_boot < 1:
+        raise ValueError("n_boot must be >= 1")
+    return PairwiseBundle(
+        run_name=run.name,
+        n_judgments=len(run),
+        n_pairs=len({j.pair_id for j in run.judgments}),
+        pairwise=audit_pairwise(run, n_boot=n_boot, seed=seed),
+        params={
+            "toolkit_version": __version__,
+            "created": _dt.datetime.now().isoformat(timespec="seconds"),
+            "n_boot": n_boot,
+            "ci_alpha": 0.05,
+            "test_alpha": 0.01,
+            "seed": seed,
+            "format": "pairwise",
+        },
+    )
+
+
+def _write_pairwise_figures(bundle: PairwiseBundle, out: Path) -> None:
+    pa = bundle.pairwise
+    if pa.skipped is None:
+        fig, ax = plt.subplots(figsize=(5.4, 3.4))
+        labels = ["P(judge picks slot 0)", "P(content A in slot 0)"]
+        values = [pa.pick_first_rate, pa.slot_balance_rate]
+        yerr_lo = [pa.pick_first_ci[0] if not np.isnan(pa.pick_first_ci[0]) else values[0], values[1]]
+        yerr_hi = [pa.pick_first_ci[1] if not np.isnan(pa.pick_first_ci[1]) else values[0], values[1]]
+        ax.bar(labels, values, yerr=[np.array(values) - np.array(yerr_lo), np.array(yerr_hi) - np.array(values)],
+               capsize=4, color=["#4C72B0", "#8C8C8C"], alpha=0.85)
+        ax.axhline(0.5, color="crimson", ls="--", lw=1, label="balanced = 0.5")
+        ax.set_ylim(0, max(0.75, float(np.nanmax(values)) * 1.3))
+        ax.set_ylabel("rate")
+        ax.set_title("Presentation-slot preference and balance")
+        ax.legend(frameon=False, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(out / "fig_pair_slot.png", dpi=150)
+        plt.close(fig)
+
+        top = pa.content_win_rates[:15]
+        if top:
+            fig, ax = plt.subplots(figsize=(6.0, 0.3 * len(top) + 1.2))
+            names = [c.content_id for c in top][::-1]
+            rates = np.array([c.win_rate for c in top][::-1])
+            apps = np.array([c.appearances for c in top][::-1])
+            se = np.sqrt(np.clip(rates * (1 - rates), 1e-6, None) / apps)
+            err = 1.96 * se
+            # keep the 95% CI inside [0, 1]: a win rate cannot leave that range
+            lo = np.minimum(err, rates)
+            hi = np.minimum(err, 1.0 - rates)
+            ax.barh(names, rates, xerr=np.vstack([lo, hi]), capsize=2, color="#4C72B0", alpha=0.85)
+            ax.axvline(0.5, color="crimson", ls="--", lw=1,
+                       label="all-content mean = 0.5 (each match has one winner)")
+            ax.set_xlabel("corrected win rate (95% CI)")
+            ax.set_title(f"Top {len(top)} of {len(pa.content_win_rates)} contents by win rate\n"
+                         "(head of the pool — above the 0.5 mean by selection)", fontsize=10)
+            ax.set_xlim(0, 1)
+            ax.legend(frameon=False, loc="lower right", fontsize=8)
+            fig.tight_layout()
+            fig.savefig(out / "fig_pair_winrates.png", dpi=150)
+            plt.close(fig)
+
+
+def write_pairwise_report(bundle: PairwiseBundle, out_dir: str | Path, title: str | None = None) -> Path:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    _write_pairwise_figures(bundle, out)
+    path = out / "report.md"
+    path.write_text(_render_pairwise(bundle, title), encoding="utf-8")
+    write_results_json(bundle, out / "results.json")
+    return path
+
+
+def _render_pairwise(b: PairwiseBundle, title: str | None) -> str:
+    pa = b.pairwise
+    p = b.params
+    today = _dt.date.today().isoformat()
+    title = title or f"Pairwise Preference Audit — {b.run_name}"
+
+    L: list[str] = []
+    L.append(f"# {title}")
+    L.append("")
+    L.append(
+        f"*Generated {today} · {b.n_judgments} judgments · {b.n_pairs} pairs · "
+        f"tie/undecided rate {pa.tie_rate:.1%}*"
+    )
+    L.append("")
+    L.append(
+        f"*Toolkit v{p.get('toolkit_version', '?')} · B = {p.get('n_boot')} bootstrap · "
+        f"seed {p.get('seed')} · 95% CIs · tests at α = 0.01 — machine-readable results "
+        "in `results.json`.*"
+    )
+    if b.n_pairs < 30:
+        L.append("")
+        L.append(
+            f"**Small-sample caution:** only {b.n_pairs} pairs — CIs and tests are "
+            "unstable at this size; treat every verdict as provisional."
+        )
+    L.append("")
+
+    L.append("## Summary")
+    L.append("")
+    L.append("| Audit | Key statistic | Value | p-value | Verdict |")
+    L.append("|---|---|---|---|---|")
+    if pa.skipped:
+        L.append(f"| Pairwise audit | — | — | — | *skipped: {pa.skipped}* |")
+    else:
+        L.append(
+            f"| Slot preference | P(judge picks content shown first) "
+            f"| {_fmt(pa.pick_first_rate)} [{_fmt(pa.pick_first_ci[0])}, {_fmt(pa.pick_first_ci[1])}] "
+            f"| {_pfmt(pa.slot_p)} | **{pa.slot_verdict}** |"
+        )
+        L.append(
+            f"| Slot balance (design side) | P(content A shown first) "
+            f"| {_fmt(pa.slot_balance_rate)} | {_pfmt(pa.slot_balance_p)} | **{pa.slot_balance}** |"
+        )
+        if pa.n_swap_pairs:
+            L.append(
+                f"| Swap consistency | same winner across both presentation orders "
+                f"| {_fmt(pa.swap_consistency)} [{_fmt(pa.swap_ci[0])}, {_fmt(pa.swap_ci[1])}] "
+                f"| — | **{pa.swap_verdict}** |"
+            )
+        else:
+            L.append("| Swap consistency | — | — | — | *skipped: judge each pair under both orders to enable* |")
+        L.append(
+            f"| Length preference | P(chosen is the longer description) "
+            f"| {_fmt(pa.p_chosen_longer)} [{_fmt(pa.p_chosen_longer_ci[0])}, {_fmt(pa.p_chosen_longer_ci[1])}] "
+            f"| — | **{pa.length_verdict}** |"
+        )
+    L.append("")
+
+    L.append("## 1. Presentation-slot preference")
+    L.append("")
+    if pa.skipped:
+        L.append(f"*Skipped — {pa.skipped}*")
+    else:
+        L.append(
+            f"Across {pa.n_decided} decided judgments: the content shown **first** wins "
+            f"{pa.pick_first_rate:.1%} of the time [{pa.pick_first_ci[0]:.3f}, {pa.pick_first_ci[1]:.3f}] "
+            f"(binomial p = {_pfmt(pa.slot_p)} vs 0.5) → **{pa.slot_verdict}**."
+        )
+        L.append("")
+        if pa.slot_balance == "imbalanced":
+            L.append(
+                "**Confound warning:** content A is presented first in "
+                f"{pa.slot_balance_rate:.1%} of pairs (p = {_pfmt(pa.slot_balance_p)}) — the "
+                "slot preference above is indistinguishable from a content-quality difference. "
+                "Randomize which content sits in which slot and re-run."
+            )
+        else:
+            L.append(
+                f"Design check: content A sits in slot 0 for {pa.slot_balance_rate:.1%} of pairs "
+                f"(p = {_pfmt(pa.slot_balance_p)}) — balanced, so the slot preference above is "
+                "confound-free."
+            )
+        L.append("")
+        L.append("![Slot preference](fig_pair_slot.png)")
+    L.append("")
+
+    L.append("## 2. Swap consistency")
+    L.append("")
+    if pa.skipped:
+        L.append(f"*Skipped — {pa.skipped}*")
+    elif pa.n_swap_pairs == 0:
+        L.append("*Skipped — judge each pair under both presentation orders "
+                 "(slot_of_a = 0 and 1) to measure order sensitivity.*")
+    else:
+        L.append(
+            f"Across {pa.n_swap_pairs} swapped judgment pairs: the same content wins both times "
+            f"**{pa.swap_consistency:.3f}** [{pa.swap_ci[0]:.3f}, {pa.swap_ci[1]:.3f}] → "
+            f"**{pa.swap_verdict}**. Low consistency means the verdict depends on which "
+            "order you happened to present — average over orders before drawing conclusions."
+        )
+    L.append("")
+
+    L.append("## 3. Length preference")
+    L.append("")
+    if pa.skipped or np.isnan(pa.p_chosen_longer):
+        L.append("*Skipped — needs context_lengths on the judgments.*")
+    else:
+        L.append(
+            f"The chosen description is the longer one {pa.p_chosen_longer:.1%} of the time "
+            f"[{pa.p_chosen_longer_ci[0]:.3f}, {pa.p_chosen_longer_ci[1]:.3f}] (coin flip 0.5) → "
+            f"**{pa.length_verdict}**. Mean length advantage of the chosen side: "
+            f"{pa.mean_length_advantage:+.1f} chars."
+        )
+    L.append("")
+
+    L.append("## 4. Corrected leaderboard")
+    L.append("")
+    shown = pa.content_win_rates[:20]
+    if not shown:
+        L.append("*No decided judgments.*")
+    else:
+        L.append("| Content | Decided | Wins | Win rate | as first | as second |")
+        L.append("|---|---|---|---|---|---|")
+        for c in shown:
+            L.append(
+                f"| {c.content_id} | {c.appearances} | {c.wins} | {c.win_rate:.3f} "
+                f"| {_fmt(c.win_rate_as_first)} | {_fmt(c.win_rate_as_second)} |"
+            )
+        if len(pa.content_win_rates) > len(shown):
+            L.append(f"| … ({len(pa.content_win_rates) - len(shown)} more in results.json) | | | | | |")
+        L.append("")
+        L.append(
+            "With a balanced design, the overall win rate is order-corrected; the as-first / "
+            "as-second split exposes content that only wins from one slot."
+        )
+        L.append("")
+        L.append("![Win rate by content](fig_pair_winrates.png)")
+    L.append("")
+
+    L.append("## Recommendations")
+    L.append("")
+    recs: list[str] = []
+    if pa.skipped is None:
+        if pa.slot_verdict in ("minor", "moderate", "severe") and pa.slot_balance == "balanced":
+            recs.append(
+                "Slot preference detected: randomize (or counterbalance) which content is "
+                "presented first, and report order-corrected win rates."
+            )
+        elif pa.slot_verdict in ("minor", "moderate", "severe") and pa.slot_balance == "imbalanced":
+            recs.append(
+                "Slot preference signal is confounded by the imbalanced presentation design — "
+                "randomize slot assignment before drawing conclusions."
+            )
+        if pa.swap_verdict == "unstable":
+            recs.append(
+                "Low swap consistency: judge verdicts depend on presentation order. Average "
+                "over both orders, or tighten the judge prompt/rubric."
+            )
+        if pa.length_verdict in ("moderate", "severe"):
+            recs.append(
+                "Length preference detected: the judge favors longer descriptions — control "
+                "for length (truncate/normalize descriptions) or report length-stratified rates."
+            )
+        if pa.tie_rate > 0.2:
+            recs.append(
+                f"Tie/undecided rate is high ({pa.tie_rate:.0%}): the judge often cannot decide. "
+                "Consider sharper instructions or discard undecided pairs from rankings."
+            )
+    if not recs:
+        recs.append("No significant judging bias detected at α = 0.01.")
+    L.extend(f"- {r}" for r in recs)
+    L.append("")
+
+    L.append("## Method notes")
+    L.append("")
+    L.append(
+        "- CIs are cluster bootstrap percentile intervals (B = "
+        f"{p.get('n_boot')}), resampling pairs so repeated judgments of one pair move together.\n"
+        "- Slot preference uses an exact binomial test vs 0.5 on decided judgments; it is "
+        "confound-free only when the slot-assignment is balanced (checked in §1).\n"
+        "- Swap consistency compares verdicts of the same pair under both presentation "
+        "orders — order-sensitive judging shows up here, independent of slot balance.\n"
+        "- Length preference measures P(the winner has the longer description) — a *combined* "
+        "signal: judge preference for longer text AND any length–quality correlation in the "
+        "content pool (strong contents often have longer descriptions). When it fires on a "
+        "design you trust, inspect how descriptions were generated before blaming the judge.\n"
+        "- Length CIs cluster on contents (contents recur across pairs), which widens them "
+        "relative to per-judgment counting; the verdict thresholds account for this.\n"
+        "- The corrected leaderboard splits each content's win rate by presentation slot; "
+        "large first/second gaps indicate residual order effects.\n"
+        "- Abstains/ties are excluded from preference statistics and reported as the tie rate."
     )
     return "\n".join(L) + "\n"

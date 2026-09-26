@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .schema import EvalRun, Response
+from .schema import EvalRun, PairJudgment, PairwiseRun, Response
 
 
 def generate_run(
@@ -165,6 +165,130 @@ def expected_offset_rates(
         for d, b in offset_attract.items():
             offsets[d - 1] = b + rest / (k - 1)
     return offsets
+
+
+def expected_pair_slot_rate(slot_pref: float) -> float:
+    """Closed-form P(judge picks the content presented in slot 0 | decided).
+
+    A slot_pref mass ``s`` is spent picking slot 0 outright; the remainder is
+    the quality/random decision, which is slot-symmetric under a balanced
+    design:  rate = s + (1 - s) / 2.
+    """
+    return slot_pref + (1.0 - slot_pref) / 2.0
+
+
+def expected_swap_consistency(discernment: float, order_flip: float) -> float:
+    """Closed-form P(same winner across the two presentation orders | decided).
+
+    Each judgment independently picks the better content with probability
+    ``discernment`` (else uniform), so P(same) = (1 + d^2) / 2 before order
+    sensitivity; with probability ``order_flip`` a re-presented judgment is
+    re-rolled entirely:  rate = (1 - f) * (1 + d^2) / 2 + f / 2.
+    """
+    base = (1.0 + discernment**2) / 2.0
+    return (1.0 - order_flip) * base + order_flip / 2.0
+
+
+def expected_p_chosen_longer(discernment: float, length_pref: float) -> float:
+    """Closed-form P(judge picks the longer description | decided).
+
+    The discerning branch picks the better content, which is the longer one
+    half the time; the undecided branch prefers longer with probability
+    0.5 + length_pref:  rate = 0.5 + (1 - d) * length_pref.
+    """
+    return 0.5 + (1.0 - discernment) * length_pref
+
+
+def generate_pairwise(
+    n_pairs: int = 1000,
+    seed: int = 0,
+    discernment: float = 0.75,
+    slot_pref: float = 0.0,
+    length_pref: float = 0.0,
+    order_flip: float = 0.0,
+    tie_prob: float = 0.0,
+    swap_orders: int = 2,
+    quality_sigma: float = 1.0,
+    length_sigma: float = 0.5,
+    n_contents: int | None = None,
+    name: str = "pairwise",
+) -> PairwiseRun:
+    """Generate an arena-style pairwise run with injectable, known biases.
+
+    Contents (trajectories/policies) are drawn from a shared pool of
+    ``n_contents`` (default ~n_pairs/10, min 20) — like a real arena where
+    each policy appears in many pairs — so per-content win rates are
+    meaningful. Each content has a fixed latent quality and description
+    length; each pair samples two distinct contents. Per judgment: tie ->
+    slot_pref (pick slot 0 outright) -> discerning pick of the better content
+    -> undecided, where the longer description wins with probability
+    0.5 + length_pref. Judgments after the first are re-rolled entirely with
+    probability ``order_flip`` (order sensitivity). Slot assignment
+    alternates across orders, so every pair is judged under both presentation
+    orders and the design is exactly balanced.
+    """
+    for label, value in (("discernment", discernment), ("slot_pref", slot_pref),
+                         ("length_pref", length_pref), ("order_flip", order_flip),
+                         ("tie_prob", tie_prob)):
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"{label} must be in [0, 1]")
+    if swap_orders < 1:
+        raise ValueError("swap_orders must be >= 1")
+    if n_contents is None:
+        n_contents = max(20, min(n_pairs, n_pairs // 10))
+    if n_contents < 2:
+        raise ValueError("n_contents must be >= 2")
+
+    rng = np.random.default_rng(seed)
+    qualities = rng.normal(0, quality_sigma, size=n_contents)
+    lengths = np.round(rng.lognormal(3.4, length_sigma, size=n_contents)).astype(int)
+
+    run = PairwiseRun(name=name)
+    for i in range(n_pairs):
+        pair_id = f"p{i:05d}"
+        ca, cb = rng.choice(n_contents, size=2, replace=False)
+        content_a, content_b = f"cand{ca:04d}", f"cand{cb:04d}"
+        q_a, q_b = qualities[ca], qualities[cb]
+        len_a, len_b = int(lengths[ca]), int(lengths[cb])
+
+        slot = int(rng.integers(2))  # first presentation order, random
+        for v in range(swap_orders):
+            if v > 0:
+                slot = 1 - slot  # alternate: guarantees both orders per pair
+            selected_slot = None
+            u = rng.random()
+            if u < tie_prob:
+                selected_slot = None
+            elif rng.random() < slot_pref:
+                selected_slot = 0
+            else:
+                re_rolled = v > 0 and rng.random() < order_flip
+                if re_rolled or rng.random() >= discernment:
+                    # undecided: longer description wins w.p. 0.5 + length_pref
+                    if len_a == len_b:
+                        chosen = int(rng.integers(2))
+                    else:
+                        longer = 0 if len_a > len_b else 1
+                        chosen = longer if rng.random() < 0.5 + length_pref else 1 - longer
+                    # chosen is an index into (a, b); map through the slot order
+                    selected_slot = chosen if slot == 0 else 1 - chosen
+                else:
+                    better = 0 if q_a >= q_b else 1
+                    selected_slot = better if slot == 0 else 1 - better
+
+            run.add(
+                PairJudgment(
+                    pair_id=pair_id,
+                    content_a_id=content_a,
+                    content_b_id=content_b,
+                    slot_of_a=slot,
+                    selected_slot=selected_slot,
+                    confidence=float(np.clip(rng.uniform(0.5, 0.95), 0.01, 0.99)) if selected_slot is not None else None,
+                    context_lengths=[len_a, len_b],
+                    variant_id=f"order_{v}",
+                )
+            )
+    return run
 
 
 def expected_selection_rates(

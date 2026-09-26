@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .generators import generate_run
-from .report import run_audit, write_report
-from .schema import load_jsonl, save_jsonl
+from .generators import generate_pairwise, generate_run
+from .report import run_audit, run_pairwise_audit, write_pairwise_report, write_report
+from .schema import load_any, load_jsonl, save_jsonl, save_pairwise_jsonl
 
 BIASED_KWARGS = dict(
     position_attract={2: 0.30},  # option C attracts 30% of would-be errors
@@ -21,6 +21,14 @@ BIASED_KWARGS = dict(
     confidence_shift=0.18,  # stated confidence is ~0.18 too high
     variant_flip=0.50,  # answers re-rolled across orderings half the time
     canonical_bonus=0.12,  # canonical ordering is answered systematically better
+)
+
+PAIRWISE_BIASED_KWARGS = dict(
+    discernment=0.65,  # weaker judge
+    slot_pref=0.20,  # picks whatever is presented first 20% of the time
+    length_pref=0.30,  # undecided judgments favor the longer description
+    order_flip=0.40,  # verdicts re-rolled 40% of the time when order swaps
+    tie_prob=0.08,
 )
 
 
@@ -49,7 +57,19 @@ def _report_lines(bundle) -> list[str]:
 
 
 def cmd_audit(args) -> int:
-    run = load_jsonl(args.input)
+    kind, run = load_any(args.input)
+    if kind == "pairwise":
+        bundle = run_pairwise_audit(run, n_boot=args.bootstrap, seed=args.seed)
+        out = write_pairwise_report(bundle, args.out, title=f"Pairwise Preference Audit — {run.name}")
+        pa = bundle.pairwise
+        print(f"audit complete: {run.name} (pairwise, {len(run)} judgments, {bundle.n_pairs} pairs)")
+        print(f"  slot preference : {pa.slot_verdict} (p = {pa.slot_p:.2e}), design {pa.slot_balance}")
+        print(f"  swap consistency: {pa.swap_verdict}"
+              + (f" ({pa.swap_consistency:.3f})" if pa.n_swap_pairs else " (skipped)"))
+        print(f"  length preference: {pa.length_verdict}")
+        print(f"report: {out}")
+        return 0
+
     bundle = _audit_run(run, args)
     out = write_report(bundle, args.out, title=f"Bias & Calibration Audit — {run.name}")
     print(f"audit complete: {run.name} ({len(run)} responses)")
@@ -87,6 +107,34 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def cmd_demo_pairwise(args) -> int:
+    out = Path(args.out)
+    specs = [
+        ("pairwise_clean", {}),
+        ("pairwise_biased", PAIRWISE_BIASED_KWARGS),
+    ]
+    for name, kwargs in specs:
+        run = generate_pairwise(
+            n_pairs=args.n,
+            swap_orders=args.variants,
+            seed=args.seed,
+            name=f"demo-pairwise-{name}",
+            **kwargs,
+        )
+        data_file = out / f"{name}_pairwise.jsonl"
+        save_pairwise_jsonl(run, data_file)
+        bundle = run_pairwise_audit(run, n_boot=args.bootstrap, seed=args.seed)
+        report = write_pairwise_report(bundle, out / name)
+        pa = bundle.pairwise
+        print(f"[{name}] slot {pa.slot_verdict} ({pa.pick_first_rate:.3f}) | "
+              f"swap {pa.swap_verdict} ({pa.swap_consistency:.3f}) | "
+              f"length {pa.length_verdict} ({pa.p_chosen_longer:.3f})")
+        print(f"  data:   {data_file}")
+        print(f"  report: {report}")
+    print(f"\nBoth reports are under {out}/ — compare clean/ vs biased/ report.md")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="choice-eval",
@@ -114,6 +162,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_demo.add_argument("--variants", type=int, default=4, help="orderings per question (default 4)")
     p_demo.add_argument("--out", default="examples")
     p_demo.set_defaults(func=cmd_demo)
+
+    p_pair = sub.add_parser("demo-pairwise", parents=[common], help="generate synthetic arena-style pairwise runs and demo reports")
+    p_pair.add_argument("--n", type=int, default=1000, help="pairs per run (default 1000)")
+    p_pair.add_argument("--variants", type=int, default=2, help="presentation orders per pair (default 2)")
+    p_pair.add_argument("--out", default="examples")
+    p_pair.set_defaults(func=cmd_demo_pairwise)
 
     return parser
 
